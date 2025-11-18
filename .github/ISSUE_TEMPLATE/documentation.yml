@@ -1,0 +1,27 @@
+name: '📖 Documentation improvement'
+description: Suggest an improvement to the documentation for flycatcher.
+labels: documentation
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a documentation improvement! Please fill in the form below.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: >
+        Describe the issue with the documentation and how it can be improved.
+    validations:
+      required: true
+
+  - type: input
+    id: link
+    attributes:
+      label: Link
+      description: >
+        Provide a link to the existing documentation, if applicable.
+      placeholder: ex. https://mrmcmullan.github.io/flycatcher/...
+    validations:
+      required: false

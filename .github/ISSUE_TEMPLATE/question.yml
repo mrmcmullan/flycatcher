@@ -1,0 +1,33 @@
+name: '❓ Question'
+description: Ask a question about usage or implementation of flycatcher.
+labels: question
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to ask a question! Please fill in the form below.
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know?
+      description: >
+        A clear and concise question.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: >
+        What are you trying to accomplish? What have you tried so far?
+  - type: textarea
+    id: code
+    attributes:
+      label: Code example (if applicable)
+      description: >
+        Include a code example if applicable.
+      value: |
+        ```python
+        # Your code here
+        ```

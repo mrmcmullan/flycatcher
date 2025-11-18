@@ -1,0 +1,35 @@
+name: '✨ Feature request'
+description: Suggest a new feature or enhancement for flycatcher.
+labels: enhancement
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a feature! Please fill in the form below.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I have checked that this feature request has not already been submitted.
+          required: true
+        - label: I have confirmed this feature is still relevant for the [latest version](https://pypi.org/project/flycatcher/) of flycatcher.
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: >
+        Describe the feature or enhancement and explain why it should be implemented.
+        Include a code example if applicable.
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Related issue(s)
+      description: >
+        Is your feature request related to a problem or existing issue? If so, please describe and link to the issue here if possible.
