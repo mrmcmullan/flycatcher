@@ -1,0 +1,34 @@
+# Label PRs based on changed files
+
+'documentation':
+  - changed-files:
+    - any-glob-to-any-file: ['docs/**/*', '*.md', 'mkdocs.yml']
+
+'tests':
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**/*'
+
+'core':
+  - changed-files:
+    - any-glob-to-any-file: 'src/flycatcher/base.py'
+
+'fields':
+  - changed-files:
+    - any-glob-to-any-file: 'src/flycatcher/fields.py'
+
+'validators':
+  - changed-files:
+    - any-glob-to-any-file: 'src/flycatcher/validators.py'
+
+'generators':
+  - changed-files:
+    - any-glob-to-any-file: 'src/flycatcher/generators/**/*'
+
+'dependencies':
+  - changed-files:
+    - any-glob-to-any-file: ['pyproject.toml', 'uv.lock']
+
+'ci':
+  - changed-files:
+    - any-glob-to-any-file: '.github/**/*'
+

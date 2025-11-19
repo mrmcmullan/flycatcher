@@ -1,0 +1,116 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+      - 'feat'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
+  - title: '📚 Documentation'
+    labels:
+      - 'documentation'
+      - 'docs'
+  - title: '🧪 Tests'
+    labels:
+      - 'test'
+      - 'tests'
+  - title: '⚡ Performance'
+    labels:
+      - 'performance'
+      - 'perf'
+  - title: '⚠️ Deprecations'
+    labels:
+      - 'deprecation'
+      - 'depr'
+  - title: '🔧 Maintenance'
+    labels:
+      - 'chore'
+      - 'refactor'
+      - 'style'
+      - 'ci'
+      - 'build'
+      - 'release'
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels:
+      - 'major'
+      - 'breaking'
+  minor:
+    labels:
+      - 'minor'
+      - 'feature'
+      - 'enhancement'
+      - 'feat'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
+      - 'chore'
+      - 'refactor'
+      - 'docs'
+      - 'test'
+  default: patch
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+autolabeler:
+  - label: 'documentation'
+    files:
+      - '*.md'
+      - 'docs/**/*'
+      - 'mkdocs.yml'
+    title:
+      - '/docs?:/i'
+  - label: 'bug'
+    title:
+      - '/fix/i'
+      - '/bug/i'
+  - label: 'enhancement'
+    title:
+      - '/feat/i'
+      - '/feature/i'
+  - label: 'deprecation'
+    title:
+      - '/depr/i'
+  - label: 'chore'
+    title:
+      - '/chore/i'
+  - label: 'test'
+    files:
+      - 'tests/**/*'
+    title:
+      - '/test/i'
+  - label: 'ci'
+    files:
+      - '.github/**/*'
+    title:
+      - '/ci/i'
+  - label: 'performance'
+    title:
+      - '/perf/i'
+  - label: 'dependencies'
+    files:
+      - 'pyproject.toml'
+      - 'uv.lock'
+
