@@ -23,7 +23,7 @@ body:
       description: What version of flycatcher are you using?
       options:
         - 0.1.0
-      default: 0.1.0
+      default: 0
   - type: textarea
     id: description
     attributes:
