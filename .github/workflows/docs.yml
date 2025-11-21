@@ -3,18 +3,18 @@ name: Documentation
 on:
   pull_request:
     paths:
-      - 'docs/**'
-      - 'src/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "src/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
   push:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - 'src/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "src/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
@@ -107,4 +107,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

@@ -1,6 +1,6 @@
-# Unified Schema
+# Flycatcher
 
-**Define your data models once. Generate Pydantic, Polars, and SQLAlchemy representations.**
+**Define your data schema once. Validate at scale. Stay columnar.**
 
 ---
 
@@ -20,10 +20,10 @@ Existing solutions force you to:
 
 ## 💡 Solution
 
-**Unified Schema** provides a single source of truth for your data models, then generates optimized representations for each use case:
+**Flycatcher** provides a single source of truth for your data models, then generates optimized representations for each use case:
 
 ```python
-from schema import Schema, Integer, String, Datetime
+from flycatcher import Schema, Integer, String, Datetime
 
 class PlayerSchema(Schema):
     id = Integer(primary_key=True)
@@ -44,7 +44,7 @@ PlayerTable = PlayerSchema.to_sqlalchemy()  # For ORM queries
 ### Installation
 
 ```bash
-pip install unified-schema
+pip install flycatcher
 ```
 
 ### Basic Usage
@@ -53,7 +53,7 @@ pip install unified-schema
 
 ```python
 # models/user.py
-from schema import Schema, Integer, String, Boolean, Datetime
+from flycatcher import Schema, Integer, String, Boolean, Datetime
 
 class UserSchema(Schema):
     id = Integer(primary_key=True)
@@ -119,21 +119,21 @@ with engine.connect() as conn:
 ## 📦 Project Structure
 
 ```
-unified-schema/
-├── schema/
-│   ├── __init__.py
-│   ├── base.py              # Core Schema class
-│   ├── fields.py            # Field type definitions
-│   └── generators/
+flycatcher/
+├── src/
+│   └── flycatcher/
 │       ├── __init__.py
-│       ├── pydantic.py      # Pydantic model generator
-│       ├── polars.py        # Polars validator generator
-│       └── sqlalchemy.py    # SQLAlchemy table generator
-├── models/
-│   └── player.py            # Your schema definitions
-├── examples/
-│   └── usage_examples.py    # Complete examples
+│       ├── base.py              # Core Schema class
+│       ├── fields.py            # Field type definitions
+│       ├── validators.py        # Validator DSL (F())
+│       └── generators/
+│           ├── __init__.py
+│           ├── pydantic.py      # Pydantic model generator
+│           ├── polars.py        # Polars validator generator
+│           └── sqlalchemy.py    # SQLAlchemy table generator
 ├── tests/
+├── examples/
+├── docs/
 ├── pyproject.toml
 └── README.md
 ```
@@ -205,6 +205,7 @@ Each tool does what it's best at:
 
 ```python
 import polars as pl
+from flycatcher import Schema, Integer, Float, Datetime
 from sqlalchemy import create_engine
 
 # 1. Define schema once
@@ -247,27 +248,46 @@ with engine.connect() as conn:
 pytest
 
 # With coverage
-pytest --cov=schema --cov-report=html
+pytest --cov=flycatcher --cov-report=html
 
 # Type checking
-mypy schema/
+mypy src/flycatcher/
 
-# Code formatting
-black schema/
-ruff check schema/
+# Linting and formatting
+ruff check src/
+ruff format src/
 ```
 
 ---
 
 ## 🛣️ Roadmap
 
-- [ ] Foreign key support
-- [ ] Custom validators (e.g., regex, ranges)
+### v0.1.0 (Current)
+- [x] Core schema definition and metaclass
+- [x] Field types: Integer, String, Float, Boolean, Datetime, Date
+- [x] Constraint support (ge, le, pattern, etc.)
+- [x] Pydantic model generator
+- [x] Polars DataFrame validator
+- [x] SQLAlchemy table generator
+- [x] Validator DSL (F())
+- [ ] Test suite with 70%+ coverage
+- [ ] Documentation site
+- [ ] PyPI publication
+
+### v0.2.0 (Planned)
+- [ ] DataFrame-level queries (`Schema.query()`)
+- [ ] Bulk write operations (`Schema.insert()`, `Schema.update()`, `Schema.upsert()`)
+- [ ] Complete ETL loop staying columnar
+
+### v0.3.0+ (Future)
+- [ ] JOIN support in queries
+- [ ] Aggregations (GROUP BY, COUNT, SUM)
 - [ ] Enum field types
 - [ ] JSON/Array field types
-- [ ] Schema migrations
+- [ ] UUID field type
+- [ ] Foreign key relationships
+- [ ] Schema migrations helper
 - [ ] CLI code generation tool
-- [ ] Integration with Patito for richer Polars validation
 
 ---
 

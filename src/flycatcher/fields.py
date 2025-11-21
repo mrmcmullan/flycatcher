@@ -1,0 +1,357 @@
+"""Field type definitions with custom validation support."""
+
+import warnings
+from datetime import date, datetime
+from typing import Any, Callable
+
+# Sentinel value to distinguish "no default provided" from "default is None"
+_MISSING = object()
+
+
+class Field:
+    """Base field class for schema definitions."""
+
+    def __init__(
+        self,
+        *,
+        primary_key: bool = False,
+        nullable: bool = False,
+        default: Any = _MISSING,
+        description: str | None = None,
+        unique: bool = False,
+        index: bool = False,
+        autoincrement: bool | None = None,
+    ):
+        self.primary_key = primary_key
+        self.nullable = nullable
+        self.default = default
+        self.description = description
+        self.unique = unique
+        self.index = index
+        self.autoincrement = autoincrement
+        self.name: str | None = None  # Set by Schema metaclass
+
+        # Warn about ambiguous configuration
+        if nullable and default is not _MISSING:
+            # Defer warning until name is set by metaclass
+            self._needs_warning = True
+        else:
+            self._needs_warning = False
+
+        # Custom validators
+        self.validators: list[Callable] = []
+
+    def get_python_type(self) -> type:
+        """Return the Python type for this field."""
+        raise NotImplementedError
+
+    def get_polars_dtype(self):
+        """Return the Polars dtype for this field."""
+        raise NotImplementedError
+
+    def get_sqlalchemy_type(self):
+        """Return the SQLAlchemy type for this field."""
+        raise NotImplementedError
+
+    def get_polars_constraints(self) -> list[tuple[Any, str]]:
+        """
+        Return list of (expression, error_message) tuples for validation.
+
+        Each tuple contains a Polars expression that evaluates to a boolean mask
+        and an error message to display when the constraint fails.
+
+        Note: Subclasses that override this method should call super() first
+        to ensure field name is set and warnings are emitted.
+        """
+        if self.name is None:
+            raise RuntimeError(
+                f"{self.__class__.__name__} constraints require field name "
+                f"to be set by Schema metaclass"
+            )
+
+        # Emit warning about nullable + default now that name is set
+        if self._needs_warning:
+            warnings.warn(
+                f"Field '{self.name}' is nullable=True with a default value. "
+                f"Default will only be used for missing columns, not null values. "
+                f"Use fill_nulls=True in validate() to replace nulls with defaults.",
+                UserWarning,
+                stacklevel=2,
+            )
+            self._needs_warning = False  # Only warn once
+
+        return []
+
+    def add_validator(self, func: Callable):
+        """Add a custom validator function."""
+        self.validators.append(func)
+        return self
+
+
+class Integer(Field):
+    """Integer field type with numeric constraints."""
+
+    def __init__(
+        self,
+        *,
+        gt: int | None = None,  # Greater than
+        ge: int | None = None,  # Greater than or equal
+        lt: int | None = None,  # Less than
+        le: int | None = None,  # Less than or equal
+        multiple_of: int | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.gt = gt
+        self.ge = ge
+        self.lt = lt
+        self.le = le
+        self.multiple_of = multiple_of
+
+    def get_python_type(self):
+        return int
+
+    def get_polars_dtype(self):
+        import polars as pl
+
+        return pl.Int64
+
+    def get_sqlalchemy_type(self):
+        from sqlalchemy import Integer as SAInteger
+
+        return SAInteger
+
+    def get_polars_constraints(self) -> list[tuple[Any, str]]:
+        """Generate Polars validation expressions."""
+        import polars as pl
+
+        constraints = list(super().get_polars_constraints())
+        col = pl.col(self.name)
+
+        # Range constraints
+        if self.gt is not None:
+            constraints.append((col > self.gt, f"{self.name} must be > {self.gt}"))
+        if self.ge is not None:
+            constraints.append((col >= self.ge, f"{self.name} must be >= {self.ge}"))
+        if self.lt is not None:
+            constraints.append((col < self.lt, f"{self.name} must be < {self.lt}"))
+        if self.le is not None:
+            constraints.append((col <= self.le, f"{self.name} must be <= {self.le}"))
+
+        # Multiple of constraint
+        if self.multiple_of is not None:
+            constraints.append(
+                (
+                    col % self.multiple_of == 0,
+                    f"{self.name} must be multiple of {self.multiple_of}",
+                )
+            )
+
+        return constraints
+
+    def get_pydantic_field_kwargs(self) -> dict[str, Any]:
+        """Return kwargs for Pydantic Field()."""
+        kwargs = {}
+        if self.gt is not None:
+            kwargs["gt"] = self.gt
+        if self.ge is not None:
+            kwargs["ge"] = self.ge
+        if self.lt is not None:
+            kwargs["lt"] = self.lt
+        if self.le is not None:
+            kwargs["le"] = self.le
+        if self.multiple_of is not None:
+            kwargs["multiple_of"] = self.multiple_of
+        return kwargs
+
+
+class Float(Field):
+    """Float field type with numeric constraints."""
+
+    def __init__(
+        self,
+        *,
+        gt: float | None = None,
+        ge: float | None = None,
+        lt: float | None = None,
+        le: float | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.gt = gt
+        self.ge = ge
+        self.lt = lt
+        self.le = le
+
+    def get_python_type(self):
+        return float
+
+    def get_polars_dtype(self):
+        import polars as pl
+
+        return pl.Float64
+
+    def get_sqlalchemy_type(self):
+        from sqlalchemy import Float as SAFloat
+
+        return SAFloat
+
+    def get_polars_constraints(self) -> list[tuple[Any, str]]:
+        """Generate Polars validation expressions."""
+        import polars as pl
+
+        constraints = list(super().get_polars_constraints())
+        col = pl.col(self.name)
+
+        if self.gt is not None:
+            constraints.append((col > self.gt, f"{self.name} must be > {self.gt}"))
+        if self.ge is not None:
+            constraints.append((col >= self.ge, f"{self.name} must be >= {self.ge}"))
+        if self.lt is not None:
+            constraints.append((col < self.lt, f"{self.name} must be < {self.lt}"))
+        if self.le is not None:
+            constraints.append((col <= self.le, f"{self.name} must be <= {self.le}"))
+
+        return constraints
+
+    def get_pydantic_field_kwargs(self) -> dict[str, Any]:
+        """Return kwargs for Pydantic Field()."""
+        kwargs = {}
+        if self.gt is not None:
+            kwargs["gt"] = self.gt
+        if self.ge is not None:
+            kwargs["ge"] = self.ge
+        if self.lt is not None:
+            kwargs["lt"] = self.lt
+        if self.le is not None:
+            kwargs["le"] = self.le
+        return kwargs
+
+
+class String(Field):
+    """String field type with string constraints."""
+
+    def __init__(
+        self,
+        *,
+        max_length: int | None = None,
+        min_length: int | None = None,
+        pattern: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.max_length = max_length
+        self.min_length = min_length
+        self.pattern = pattern
+
+    def get_python_type(self):
+        return str
+
+    def get_polars_dtype(self):
+        import polars as pl
+
+        return pl.Utf8
+
+    def get_sqlalchemy_type(self):
+        from sqlalchemy import String as SAString
+        from sqlalchemy import Text
+
+        if self.max_length:
+            return SAString(self.max_length)
+        return Text
+
+    def get_polars_constraints(self) -> list[tuple[Any, str]]:
+        """Generate Polars validation expressions."""
+        import polars as pl
+
+        constraints = list(super().get_polars_constraints())
+        col = pl.col(self.name)
+
+        # Length constraints
+        if self.min_length is not None:
+            constraints.append(
+                (
+                    col.str.len_chars() >= self.min_length,
+                    f"{self.name} must have at least {self.min_length} characters",
+                )
+            )
+        if self.max_length is not None:
+            constraints.append(
+                (
+                    col.str.len_chars() <= self.max_length,
+                    f"{self.name} must have at most {self.max_length} characters",
+                )
+            )
+
+        # Regex pattern
+        if self.pattern is not None:
+            constraints.append(
+                (
+                    col.str.contains(self.pattern),
+                    f"{self.name} must match pattern: {self.pattern}",
+                )
+            )
+
+        return constraints
+
+    def get_pydantic_field_kwargs(self) -> dict[str, Any]:
+        """Return kwargs for Pydantic Field()."""
+        kwargs = {}
+        if self.min_length is not None:
+            kwargs["min_length"] = self.min_length
+        if self.max_length is not None:
+            kwargs["max_length"] = self.max_length
+        if self.pattern is not None:
+            kwargs["pattern"] = self.pattern
+        return kwargs
+
+
+class Boolean(Field):
+    """Boolean field type."""
+
+    def get_python_type(self):
+        return bool
+
+    def get_polars_dtype(self):
+        import polars as pl
+
+        return pl.Boolean
+
+    def get_sqlalchemy_type(self):
+        from sqlalchemy import Boolean as SABoolean
+
+        return SABoolean
+
+
+class Datetime(Field):
+    """Datetime field type."""
+
+    def get_python_type(self):
+        return datetime
+
+    def get_polars_dtype(self):
+        import polars as pl
+
+        return pl.Datetime
+
+    def get_sqlalchemy_type(self):
+        from sqlalchemy import DateTime
+
+        return DateTime
+
+
+class Date(Field):
+    """Date field type."""
+
+    def get_python_type(self):
+        return date
+
+    def get_polars_dtype(self):
+        import polars as pl
+
+        return pl.Date
+
+    def get_sqlalchemy_type(self):
+        from sqlalchemy import Date as SADate
+
+        return SADate

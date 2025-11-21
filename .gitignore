@@ -67,3 +67,6 @@ docs/_build/
 
 # Cursor plans
 .cursor/plans/
+
+# Matt's development docs
+docs/dev/
