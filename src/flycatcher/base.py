@@ -9,6 +9,10 @@ class SchemaMeta(type):
     """Metaclass that collects Field definitions and validators from class body."""
 
     def __new__(mcs, name, bases, namespace):
+        # TODO: Support field inheritance - walk MRO of bases and merge parent
+        # fields/validators before collecting current class fields. Child fields
+        # should override parent fields with same name. See test_schema.py
+        # test_inherited_fields_collected for expected behavior.
         # Collect all Field instances
         fields: dict[str, Field] = {}
         model_validators: list[Callable] = []
@@ -19,6 +23,11 @@ class SchemaMeta(type):
                 fields[key] = value
             elif callable(value) and getattr(value, "_is_model_validator", False):
                 model_validators.append(value)
+            elif isinstance(value, classmethod):
+                # Handle @classmethod decorator - check the underlying function
+                func = value.__func__
+                if getattr(func, "_is_model_validator", False):
+                    model_validators.append(value)
 
         # Store fields and validators in the class
         namespace["_fields"] = fields
@@ -39,10 +48,11 @@ class Schema(metaclass=SchemaMeta):
             created_at = Datetime()
 
             @model_validator
-            def check_age_name_logic(cls):
+            def check_age_name_logic():
                 '''Custom cross-field validation'''
+                import flycatcher as fl
                 return (
-                    (pl.col('age') >= 18) | (pl.col('name').str.contains('_junior')),
+                    (fl.col('age') >= 18) | fl.col('name').str.contains('_junior'),
                     "Users under 18 must have '_junior' in their name"
                 )
     """
@@ -65,11 +75,11 @@ class Schema(metaclass=SchemaMeta):
         return create_polars_validator(cls)
 
     @classmethod
-    def to_sqlalchemy(cls, table_name: str | None = None):
+    def to_sqlalchemy(cls, table_name: str | None = None, metadata=None):
         """Generate a SQLAlchemy Table from this schema."""
         from .generators.sqlalchemy import create_sqlalchemy_table
 
-        return create_sqlalchemy_table(cls, table_name=table_name)
+        return create_sqlalchemy_table(cls, table_name=table_name, metadata=metadata)
 
     @classmethod
     def fields(cls) -> dict[str, Field]:
@@ -86,15 +96,16 @@ def model_validator(func: Callable) -> Callable:
     """
     Decorator for cross-field validation.
 
-    The function should return a tuple of (expression, error_message).
+    The function should return a tuple of (expression, error_message)
+    or a DSL expression.
+
+    The `cls` parameter is optional - you can omit it for more ergonomic use:
 
     Example:
         @model_validator
-        def check_start_end_date(cls):
-            return (
-                pl.col('end_date') > pl.col('start_date'),
-                "end_date must be after start_date"
-            )
+        def check_start_end_date():
+            import flycatcher as fl
+            return fl.col('end_date') > fl.col('start_date')
     """
     # Mark the function as a model validator
     func._is_model_validator = True  # type: ignore[attr-defined]

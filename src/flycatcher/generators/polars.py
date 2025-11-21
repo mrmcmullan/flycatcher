@@ -1,5 +1,6 @@
 """Polars validation model generator with dataframe-level constraint checking."""
 
+import inspect
 from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import polars as pl
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 class PolarsValidator:
     """A validator for Polars DataFrames based on schema definition."""
 
-    def __init__(self, schema_cls: type[Schema]) -> None:
+    def __init__(self, schema_cls: "type[Schema]") -> None:
         self.schema_cls = schema_cls
         self.fields = schema_cls.fields()
         self._polars_schema = self._build_polars_schema()
@@ -45,7 +46,22 @@ class PolarsValidator:
 
         # Model-level validators (cross-field)
         for validator in self.schema_cls.model_validators():
-            result = ValidatorResult(validator(self.schema_cls))
+            # Handle both regular functions and classmethod descriptors
+            if isinstance(validator, classmethod):
+                # For classmethod descriptors, access the underlying function
+                func = validator.__func__
+            else:
+                func = validator
+
+            # Check if function accepts cls parameter - make it optional for ergonomics
+            sig = inspect.signature(func)
+            if len(sig.parameters) > 0:
+                # Function accepts at least one parameter, pass cls
+                validator_result = func(self.schema_cls)  # type: ignore[call-arg]
+            else:
+                # Function takes no parameters, call without args
+                validator_result = func()  # type: ignore[call-arg]
+            result = ValidatorResult(validator_result)
             polars_validator = result.get_polars_validator()
             if polars_validator:
                 expr, msg = polars_validator
@@ -189,6 +205,17 @@ class PolarsValidator:
                             }
                         )
                         df = df.filter(constraint_expr)
+            except ValueError as e:
+                # Check if this is our intentional ValueError for constraint violations
+                # (has "Constraint violation" in the message) vs an evaluation error
+                if "Constraint violation" in str(e) and strict:
+                    # This is our intentional ValueError - re-raise it
+                    raise
+                # Otherwise, it's an evaluation error - log and continue
+                logger.warning(
+                    f"Could not evaluate constraint '{error_msg}': {e}",
+                    exc_info=True,
+                )
             except Exception as e:
                 # Handle cases where constraint can't be evaluated
                 logger.warning(
@@ -214,7 +241,7 @@ class PolarsValidator:
         return [msg for _, msg in self._constraints]
 
 
-def create_polars_validator(schema_cls: type[Schema]) -> PolarsValidator:
+def create_polars_validator(schema_cls: "type[Schema]") -> PolarsValidator:
     """
     Create a Polars validator from a Schema class.
 
