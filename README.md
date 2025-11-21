@@ -83,7 +83,7 @@ class UserSchema(Schema):
     created_at = Datetime()
 ```
 
-#### 2. Validate row-level data with Pydantic
+### 2. Validate row-level data with Pydantic
 
 ```python
 User = UserSchema.to_pydantic()
@@ -98,7 +98,7 @@ user = User(
 print(user.model_dump())
 ```
 
-#### 3. Validate entire dataframes with Polars
+### 3. Validate entire dataframes with Polars
 
 ```python
 import polars as pl
@@ -109,7 +109,7 @@ df = pl.read_csv("users.csv")
 validated_df = UserValidator.validate(df, strict=True)
 ```
 
-#### 4. Use SQLAlchemy for Typed Queries
+### 4. Use SQLAlchemy for Typed Queries
 
 ```python
 from sqlalchemy import create_engine
