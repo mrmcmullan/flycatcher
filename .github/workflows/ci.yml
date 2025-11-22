@@ -2,15 +2,12 @@ name: CI
 
 on:
   pull_request:
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/ci.yml"
+    # Run on all PRs since tests are required status checks
+    # This ensures every PR is tested, preventing blocked merges
   push:
     branches:
       - main
+    # Only run on push to main when relevant files change (optimization)
     paths:
       - "src/**"
       - "tests/**"

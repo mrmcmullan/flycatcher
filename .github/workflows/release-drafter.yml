@@ -5,27 +5,34 @@ on:
     branches:
       - main
   pull_request:
-    types: [closed]
+    types: [opened, edited, synchronize, closed]
     branches:
       - main
   workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write  # Required to add labels via autolabeler
 
 jobs:
   update_release_draft:
     name: Update release draft
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    # Run on PR open/edit (for autolabeler) OR on merge/push (for draft release)
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'pull_request' && github.event.action != 'closed')
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Draft release
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-autolabeler: false
+          disable-autolabeler: false  # Always enable autolabeler - it will only label on PR open, only draft on merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
