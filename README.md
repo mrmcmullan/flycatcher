@@ -6,14 +6,28 @@
 <p style="margin: 0.2em 0; font-size: 1.3em;"><strong>Define your schema once. Validate at scale. Stay columnar.</strong></p>
 <p style="margin: 0.2em 0;"><em>Built for DataFrames, powered across Pydantic, Polars, and SQLAlchemy.</em></p>
 
-</div>
+<p>
+  <a href="https://github.com/mmcmullan/flycatcher/actions/workflows/ci.yml" title="CI Status">
+    <img src="https://github.com/mmcmullan/flycatcher/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://codecov.io/gh/mmcmullan/flycatcher" title="Codecov">
+    <img src="https://codecov.io/gh/mmcmullan/flycatcher/branch/main/graph/badge.svg" alt="codecov">
+  </a>
+  <a href="https://badge.fury.io/py/flycatcher" title="PyPI Version">
+    <img src="https://badge.fury.io/py/flycatcher.svg" alt="PyPI version">
+  </a>
+  <a href="https://www.python.org/downloads/" title="Python 3.12+">
+    <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">
+  </a>
+  <a href="https://opensource.org/licenses/MIT" title="License: MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <a href="https://mmcmullan.github.io/flycatcher" title="Documentation">
+    <img src="https://img.shields.io/badge/docs-mkdocs-blue.svg" alt="Documentation">
+  </a>
+</p>
 
-[![CI](https://github.com/mmcmullan/flycatcher/actions/workflows/ci.yml/badge.svg)](https://github.com/mmcmullan/flycatcher/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/mmcmullan/flycatcher/branch/main/graph/badge.svg)](https://codecov.io/gh/mmcmullan/flycatcher)
-[![PyPI version](https://badge.fury.io/py/flycatcher.svg)](https://badge.fury.io/py/flycatcher)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://mmcmullan.github.io/flycatcher)
+</div>
 
 ---
 
@@ -371,6 +385,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 <div align="center">
+
+
 
 <p><strong>Built with ❤️ for the DataFrame generation</strong></p>
 
