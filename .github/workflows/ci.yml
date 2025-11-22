@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest] # Start with Ubuntu only; add Windows/macOS later if needed
-        python-version: ["3.12"]
+        python-version: ["3.12", "3.13"]
 
     steps:
       - name: Checkout code
@@ -78,7 +78,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |

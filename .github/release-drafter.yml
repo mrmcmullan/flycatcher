@@ -12,10 +12,23 @@ categories:
       - 'fix'
       - 'bugfix'
       - 'bug'
+    exclude-labels:
+      - 'enhancement'
+      - 'feature'
+      - 'feat'
   - title: '📚 Documentation'
     labels:
       - 'documentation'
       - 'docs'
+    exclude-labels:
+      - 'enhancement'
+      - 'feature'
+      - 'feat'
+      - 'fix'
+      - 'bug'
+      - 'test'
+      - 'ci'
+      - 'chore'
   - title: '🧪 Tests'
     labels:
       - 'test'
@@ -39,6 +52,33 @@ categories:
 
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 change-title-escapes: '\<*_&'
+
+# Strip conventional commit prefixes from titles in release notes
+replacers:
+  - search: '/^feat: /i'
+    replace: ''
+  - search: '/^fix: /i'
+    replace: ''
+  - search: '/^chore: /i'
+    replace: ''
+  - search: '/^docs?: /i'
+    replace: ''
+  - search: '/^style: /i'
+    replace: ''
+  - search: '/^refactor: /i'
+    replace: ''
+  - search: '/^perf: /i'
+    replace: ''
+  - search: '/^test: /i'
+    replace: ''
+  - search: '/^ci: /i'
+    replace: ''
+  - search: '/^build: /i'
+    replace: ''
+  - search: '/^depr: /i'
+    replace: ''
+  - search: '/^release: /i'
+    replace: ''
 
 version-resolver:
   major:
@@ -75,40 +115,38 @@ template: |
   **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
 
 autolabeler:
-  - label: 'documentation'
-    files:
-      - '*.md'
-      - 'docs/**/*'
-      - 'mkdocs.yml'
-    title:
-      - '/docs?:/i'
-  - label: 'bug'
-    title:
-      - '/fix/i'
-      - '/bug/i'
+  # Title-based labels (checked first, take priority over file-based labels)
   - label: 'enhancement'
     title:
-      - '/feat/i'
-      - '/feature/i'
+      - '/^feat:/i'
+      - '/^feature:/i'
+  - label: 'bug'
+    title:
+      - '/^fix:/i'
+      - '/^bugfix:/i'
   - label: 'deprecation'
     title:
-      - '/depr/i'
+      - '/^depr:/i'
+      - '/^deprecation:/i'
   - label: 'chore'
     title:
-      - '/chore/i'
+      - '/^chore:/i'
   - label: 'test'
-    files:
-      - 'tests/**/*'
     title:
-      - '/test/i'
+      - '/^test:/i'
+      - '/^tests:/i'
   - label: 'ci'
-    files:
-      - '.github/**/*'
     title:
-      - '/ci/i'
+      - '/^ci:/i'
+      - '/^build:/i'
   - label: 'performance'
     title:
-      - '/perf/i'
+      - '/^perf:/i'
+      - '/^performance:/i'
+  - label: 'documentation'
+    title:
+      - '/^docs?:/i'
+  # File-based labels (applied by .github/labeler.yml, but excluded from wrong categories via exclude-labels)
   - label: 'dependencies'
     files:
       - 'pyproject.toml'
