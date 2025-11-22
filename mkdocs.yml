@@ -1,0 +1,119 @@
+site_name: Flycatcher
+site_description: Define your data schema once. Validate at scale. Stay columnar.
+site_url: https://mrmcmullan.github.io/flycatcher
+repo_url: https://github.com/mrmcmullan/flycatcher
+repo_name: mrmcmullan/flycatcher
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+  palette:
+    # Light mode
+    - scheme: default
+      primary: deep orange # Vermilion/red-orange color
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_object_full_path: false
+            show_category_heading: true
+            members_order: source
+            heading_level: 2
+            merge_init_into_class: true
+            show_if_no_docstring: false
+            inherited_members: false
+            filters:
+              - "!^_" # Exclude private members
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      auto_append:
+        - includes/abbreviations.md
+      base_path: ["."]
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - attr_list
+  - md_in_html
+  - def_list
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/mmcmullan/flycatcher
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - tutorials/index.md
+      - Building Your First Schema: tutorials/first-schema.md
+  - How-To Guides:
+      - how-to/index.md
+      - Custom Validators: how-to/custom-validators.md
+  - Explanations:
+      - explanations/index.md
+      - Why Flycatcher?: explanations/comparison.md
+      - The Three Outputs: explanations/three-outputs.md
+      - Validator Formats: explanations/validator-formats.md
+  - API Reference:
+      - api/index.md
+      - Schema: api/schema.md
+      - Fields: api/fields.md
+      - Validators: api/validators.md
+      - Generators: api/generators.md
+
+watch:
+  - src/flycatcher
