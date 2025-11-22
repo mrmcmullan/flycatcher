@@ -126,6 +126,7 @@ class Integer(Field):
         import polars as pl
 
         constraints = list(super().get_polars_constraints())
+        assert self.name is not None  # Checked by base class
         col = pl.col(self.name)
 
         # Range constraints
@@ -201,6 +202,7 @@ class Float(Field):
         import polars as pl
 
         constraints = list(super().get_polars_constraints())
+        assert self.name is not None  # Checked by base class
         col = pl.col(self.name)
 
         if self.gt is not None:
@@ -265,6 +267,7 @@ class String(Field):
         import polars as pl
 
         constraints = list(super().get_polars_constraints())
+        assert self.name is not None  # Checked by base class
         col = pl.col(self.name)
 
         # Length constraints
@@ -296,7 +299,7 @@ class String(Field):
 
     def get_pydantic_field_kwargs(self) -> dict[str, Any]:
         """Return kwargs for Pydantic Field()."""
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if self.min_length is not None:
             kwargs["min_length"] = self.min_length
         if self.max_length is not None:

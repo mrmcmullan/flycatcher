@@ -1,7 +1,7 @@
 """Pydantic model generator with constraint support."""
 
 import inspect
-from typing import Any
+from typing import Any, Union
 
 from loguru import logger
 from pydantic import BaseModel, create_model, model_validator
@@ -30,11 +30,13 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
     pydantic_fields = {}
 
     for field_name, field in fields.items():
-        python_type = field.get_python_type()
+        python_type: type | type[None] = field.get_python_type()
 
         # Handle nullable fields (can be None)
         if field.nullable:
-            python_type = python_type | None
+            # Create Union type for nullable fields
+            # Using tuple form for Union to avoid mypy assignment error
+            python_type = Union[python_type, None]  # type: ignore[assignment]
 
         # Create Pydantic Field with metadata
         field_kwargs: dict[str, Any] = {}
@@ -61,7 +63,8 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
 
     # Create the model dynamically
     model_name = schema_cls.__name__.removesuffix("Schema") + "Model"
-    base_model = create_model(model_name, **pydantic_fields)
+    # Pydantic's create_model is dynamically typed - returns type[BaseModel] at runtime
+    base_model: type[BaseModel] = create_model(model_name, **pydantic_fields)  # type: ignore[assignment, call-overload]
 
     # Add model validators if they have Pydantic implementations
     validators_to_add = []
@@ -88,8 +91,8 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
 
     # If we have validators, create a new class with them
     if validators_to_add:
-
-        class ModelWithValidators(base_model):
+        # base_model is dynamically created, mypy can't verify it's a valid base class
+        class ModelWithValidators(base_model):  # type: ignore[misc, valid-type]
             """Pydantic model with custom cross-field validators."""
 
             @model_validator(mode="after")  # Run after field validation
@@ -107,6 +110,8 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
                 return self
 
         ModelWithValidators.__name__ = model_name
-        return ModelWithValidators
+        # type[BaseModel] at runtime, but mypy can't verify dynamic class creation
+        return ModelWithValidators  # type: ignore[no-any-return]
 
-    return base_model
+    # base_model is type[BaseModel] at runtime, but mypy can't verify dynamic creation
+    return base_model  # type: ignore[no-any-return]
