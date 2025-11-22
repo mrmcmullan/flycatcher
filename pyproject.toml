@@ -7,7 +7,7 @@ name = "flycatcher"
 version = "0.1.0"
 description = "Define your data schema once. Validate at scale. Stay columnar."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 license = {text = "MIT"}
 authors = [
     {name = "Matt McMullan", email = "your.email@example.com"}
@@ -19,6 +19,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Database",
     "Typing :: Typed",
@@ -56,7 +57,7 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
-ignore = []
+ignore = ["N806"]  # Allow uppercase variables in functions (e.g., class assignments)
 
 [tool.mypy]
 python_version = "3.12"

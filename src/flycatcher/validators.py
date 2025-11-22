@@ -262,6 +262,7 @@ class UnaryOp(_ExpressionMixin):
         """Negation."""
         return UnaryOp("~", self)
 
+
 # Convenience alias
 col = FieldRef
 

@@ -270,6 +270,7 @@ ruff format src/
 - [x] Polars DataFrame validator
 - [x] SQLAlchemy table generator
 - [x] Validator DSL (F())
+- [ ] Schema inheritance support (collect fields/validators from parent classes)
 - [ ] Test suite with 70%+ coverage
 - [ ] Documentation site
 - [ ] PyPI publication

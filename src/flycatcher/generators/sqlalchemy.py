@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def create_sqlalchemy_table(
-    schema_cls: type[Schema],
+    schema_cls: "type[Schema]",
     table_name: str | None = None,
     metadata: MetaData | None = None,
 ) -> Table:

@@ -1,5 +1,6 @@
 """Pydantic model generator with constraint support."""
 
+import inspect
 from typing import Any
 
 from loguru import logger
@@ -11,7 +12,7 @@ from ..fields import _MISSING
 from ..validators import ValidatorResult
 
 
-def create_pydantic_model(schema_cls: type[Schema]) -> type[BaseModel]:
+def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
     """
     Generate a Pydantic BaseModel from a Schema class.
 
@@ -65,7 +66,22 @@ def create_pydantic_model(schema_cls: type[Schema]) -> type[BaseModel]:
     # Add model validators if they have Pydantic implementations
     validators_to_add = []
     for validator_func in schema_cls.model_validators():
-        result = ValidatorResult(validator_func(schema_cls))
+        # Handle both regular functions and classmethod descriptors
+        if isinstance(validator_func, classmethod):
+            # For classmethod descriptors, access the underlying function
+            func = validator_func.__func__
+        else:
+            func = validator_func
+
+        # Check if function accepts cls parameter - make it optional for ergonomics
+        sig = inspect.signature(func)
+        if len(sig.parameters) > 0:
+            # Function accepts at least one parameter, pass cls
+            validator_result = func(schema_cls)  # type: ignore[call-arg]
+        else:
+            # Function takes no parameters, call without args
+            validator_result = func()  # type: ignore[call-arg]
+        result = ValidatorResult(validator_result)
         if result.has_pydantic_validator():
             pydantic_val = result.get_pydantic_validator()
             validators_to_add.append(pydantic_val)
