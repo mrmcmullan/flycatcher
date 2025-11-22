@@ -1,6 +1,6 @@
 """Validator DSL for cross-platform (Polars + Pydantic) validation."""
 
-from typing import Any
+from typing import Any, Callable, cast
 
 import polars as pl
 
@@ -11,8 +11,10 @@ class _ExpressionMixin:
     def _to_polars(self, obj: Any) -> pl.Expr:
         """Convert object to Polars expression."""
         if hasattr(obj, "to_polars"):
-            return obj.to_polars()
-        return pl.lit(obj)
+            # obj has to_polars method, returns pl.Expr
+            return cast(pl.Expr, obj.to_polars())
+        # pl.lit always returns pl.Expr, but type stubs may not reflect this
+        return cast(pl.Expr, pl.lit(obj))
 
     def _to_python(self, obj: Any, values: Any) -> Any:
         """Convert object to Python value."""
@@ -58,10 +60,12 @@ class FieldRef:
     def __le__(self, other: Any) -> "BinaryOp":
         return BinaryOp(self, "<=", other)
 
-    def __eq__(self, other: Any) -> "BinaryOp":
+    def __eq__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
         return BinaryOp(self, "==", other)
 
-    def __ne__(self, other: Any) -> "BinaryOp":
+    def __ne__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
         return BinaryOp(self, "!=", other)
 
     def __add__(self, other: Any) -> "BinaryOp":
@@ -93,7 +97,7 @@ class FieldRef:
 class BinaryOp(_ExpressionMixin):
     """Binary operation that can compile to both Polars and Python."""
 
-    POLARS_OPS = {
+    POLARS_OPS: dict[str, Callable[[pl.Expr, pl.Expr], pl.Expr]] = {
         ">": lambda a, b: a > b,
         ">=": lambda a, b: a >= b,
         "<": lambda a, b: a < b,
@@ -132,7 +136,8 @@ class BinaryOp(_ExpressionMixin):
         """Compile to Polars expression."""
         left_expr = self._to_polars(self.left)
         right_expr = self._to_polars(self.right)
-        return self.POLARS_OPS[self.op](left_expr, right_expr)
+        # POLARS_OPS is typed, but mypy can't infer return type from lambda
+        return cast(pl.Expr, self.POLARS_OPS[self.op](left_expr, right_expr))
 
     def to_python(self, values: Any) -> Any:
         """Evaluate in Python context."""
@@ -153,10 +158,12 @@ class BinaryOp(_ExpressionMixin):
     def __le__(self, other: Any) -> "BinaryOp":
         return BinaryOp(self, "<=", other)
 
-    def __eq__(self, other: Any) -> "BinaryOp":
+    def __eq__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
         return BinaryOp(self, "==", other)
 
-    def __ne__(self, other: Any) -> "BinaryOp":
+    def __ne__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
         return BinaryOp(self, "!=", other)
 
     def __add__(self, other: Any) -> "BinaryOp":
@@ -189,7 +196,7 @@ class BinaryOp(_ExpressionMixin):
 class UnaryOp(_ExpressionMixin):
     """Unary operation that can compile to both Polars and Python."""
 
-    POLARS_OPS = {
+    POLARS_OPS: dict[str, Callable[[pl.Expr], pl.Expr]] = {
         "abs": lambda expr: expr.abs(),
         "~": lambda expr: ~expr,
     }
@@ -208,7 +215,8 @@ class UnaryOp(_ExpressionMixin):
         operand_expr = self._to_polars(self.operand)
         if self.op not in self.POLARS_OPS:
             raise ValueError(f"Unknown unary op: {self.op}")
-        return self.POLARS_OPS[self.op](operand_expr)
+        # POLARS_OPS is typed, but mypy can't infer return type from lambda
+        return cast(pl.Expr, self.POLARS_OPS[self.op](operand_expr))
 
     def to_python(self, values: Any) -> Any:
         """Evaluate in Python context."""
@@ -230,10 +238,12 @@ class UnaryOp(_ExpressionMixin):
     def __le__(self, other: Any) -> "BinaryOp":
         return BinaryOp(self, "<=", other)
 
-    def __eq__(self, other: Any) -> "BinaryOp":
+    def __eq__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
         return BinaryOp(self, "==", other)
 
-    def __ne__(self, other: Any) -> "BinaryOp":
+    def __ne__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
         return BinaryOp(self, "!=", other)
 
     def __add__(self, other: Any) -> "BinaryOp":

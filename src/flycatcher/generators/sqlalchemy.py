@@ -74,7 +74,8 @@ def create_sqlalchemy_table(
             column_kwargs["default"] = field.default
 
         # Create column
-        col = Column(field_name, sa_type(), **column_kwargs)
+        # Column accepts dynamic kwargs that mypy can't verify statically
+        col = Column(field_name, sa_type(), **column_kwargs)  # type: ignore[arg-type]
         columns.append(col)
 
     return Table(table_name, metadata, *columns)
