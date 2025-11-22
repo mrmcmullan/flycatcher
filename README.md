@@ -1,41 +1,76 @@
-# Flycatcher
+<div align="center" style="line-height: 1.2;">
 
-**Define your data schema once. Validate at scale. Stay columnar.**
+<img src="https://raw.githubusercontent.com/mrmcmullan/flycatcher/main/docs/assets/logo.png" alt="Flycatcher Logo" width="400" style="margin-bottom: 0.5em;"/>
+
+<!-- <h1 style="margin: 0.3em 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-weight: 600; color: #000;">🐦 Flycatcher</h1> -->
+<p style="margin: 0.2em 0; font-size: 1.3em;"><strong>Define your schema once. Validate at scale. Stay columnar.</strong></p>
+<p style="margin: 0.2em 0;"><em>Built for DataFrames, powered across Pydantic, Polars, and SQLAlchemy.</em></p>
+
+<p>
+  <a href="https://github.com/mrmcmullan/flycatcher/actions/workflows/ci.yml" title="CI Status">
+    <img src="https://github.com/mrmcmullan/flycatcher/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://codecov.io/gh/mrmcmullan/flycatcher" title="Codecov">
+    <img src="https://codecov.io/gh/mrmcmullan/flycatcher/branch/main/graph/badge.svg" alt="codecov">
+  </a>
+  <a href="https://badge.fury.io/py/flycatcher" title="PyPI Version">
+    <img src="https://badge.fury.io/py/flycatcher.svg" alt="PyPI version">
+  </a>
+  <a href="https://www.python.org/downloads/" title="Python 3.12+">
+    <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">
+  </a>
+  <a href="https://opensource.org/licenses/MIT" title="License: MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <a href="https://mmcmullan.github.io/flycatcher" title="Documentation">
+    <img src="https://img.shields.io/badge/docs-mkdocs-blue.svg" alt="Documentation">
+  </a>
+</p>
+
+</div>
 
 ---
 
-## 🎯 Problem
+Flycatcher is a **DataFrame-native schema layer** for Python. Define your data model once and generate optimized representations for every part of your stack:
 
-When building data pipelines and applications, you often need:
+- 🎯 **Pydantic models** for API validation & serialization
+- ⚡ **Polars validators** for blazing-fast bulk validation
+- 🗄️ **SQLAlchemy tables** for typed database access
 
-- ✅ **Fast bulk validation** with Polars/Arrow
-- ✅ **Typed ORM queries** with SQLAlchemy
-- ✅ **Row-level validation** with Pydantic
-- ❌ **Without duplicating schema definitions**
+**Built for modern data workflows:** Validate millions of rows at high speed, keep schema drift at zero, and stay columnar end-to-end.
 
-Existing solutions force you to:
-- Define schemas multiple times (Pydantic model, SQLAlchemy table, Polars dtypes)
-- Risk schema drift between systems
-- Choose between row-oriented (ORM) or columnar (Polars) systems
+---
 
-## 💡 Solution
+## ❓ Why Flycatcher?
 
-**Flycatcher** provides a single source of truth for your data models, then generates optimized representations for each use case:
+Many data projects need **row-level validation** (Pydantic), **efficient bulk operations** (Polars), and **typed database queries** (SQLAlchemy). But maintaining multiple schemas across this stack can lead to duplication, drift, and manually juggling row-oriented and columnar paradigms.
+
+**Flycatcher solves this:** One schema definition → three optimized outputs.
 
 ```python
-from flycatcher import Schema, Integer, String, Datetime
+from flycatcher import Schema, Integer, String, Float, col, model_validator
 
-class PlayerSchema(Schema):
+class ProductSchema(Schema):
     id = Integer(primary_key=True)
-    name = String(max_length=100)
-    age = Integer(optional=True)
-    created_at = Datetime()
+    name = String(min_length=3, max_length=100)
+    price = Float(gt=0)
+    discount_price = Float(gt=0, nullable=True)
 
-# Generate representations
-Player = PlayerSchema.to_pydantic()        # For APIs & row validation
-PlayerValidator = PlayerSchema.to_polars_model()  # For ETL & bulk ops
-PlayerTable = PlayerSchema.to_sqlalchemy()  # For ORM queries
+    @model_validator
+    def check_discount():
+        # Cross-field validation with DSL
+        return (
+            col('discount_price') < col('price'),
+            "Discount price must be less than regular price"
+        )
+
+# Generate three optimized representations
+ProductModel = ProductSchema.to_pydantic()         # → Pydantic BaseModel
+ProductValidator = ProductSchema.to_polars_model() # → Polars DataFrame validator
+ProductTable = ProductSchema.to_sqlalchemy()       # → SQLAlchemy Table
 ```
+
+**Flycatcher lets you stay DataFrame-native without giving up the speed of Polars, the ergonomic validation of Pydantic, or the Pythonic power of SQLAlchemy**.
 
 ---
 
@@ -45,59 +80,65 @@ PlayerTable = PlayerSchema.to_sqlalchemy()  # For ORM queries
 
 ```bash
 pip install flycatcher
+# or
+uv add flycatcher
 ```
 
-### Basic Usage
-
-#### 1. Define Your Schema Once
+### Define Your Schema
 
 ```python
-# models/user.py
 from flycatcher import Schema, Integer, String, Boolean, Datetime
 
 class UserSchema(Schema):
     id = Integer(primary_key=True)
-    username = String(max_length=50, unique=True)
-    email = String(unique=True, index=True)
+    username = String(min_length=3, max_length=50, unique=True)
+    email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$', unique=True, index=True)
+    age = Integer(ge=13, le=120)
     is_active = Boolean(default=True)
     created_at = Datetime()
 ```
 
-#### 2. Use Pydantic for APIs
+### Use Pydantic for Row-Level Validation
+
+Perfect for APIs, forms, and single-record validation:
 
 ```python
+from datetime import datetime
+
 User = UserSchema.to_pydantic()
 
-# Validate API requests
+# Validates constraints automatically
 user = User(
     id=1,
     username="alice",
     email="alice@example.com",
+    age=25,
     created_at=datetime.utcnow()
 )
 
-# Serialize to JSON
+# Serialize to JSON/dict
 print(user.model_dump_json())
 ```
 
-#### 3. Use Polars for ETL
+### Use Polars for Bulk Validation
+
+Perfect for ETL, large-scale data pipelines, and DataFrame-level validation:
 
 ```python
 import polars as pl
 
 UserValidator = UserSchema.to_polars_model()
 
-# Load CSV
+# Validate 1M+ rows with blazing speed
 df = pl.read_csv("users.csv")
+validated_df = UserValidator.validate(df, strict=True)
 
-# Validate & enforce schema
-validated_df = UserValidator.validate(df)
-
-# Write to Parquet
-validated_df.write_parquet("users.parquet")
+validated_df.write_parquet("validated_users.parquet")
 ```
 
-#### 4. Use SQLAlchemy for Queries
+### Use SQLAlchemy for Database Operations
+
+Perfect for typed queries and database interactions:
 
 ```python
 from sqlalchemy import create_engine
@@ -105,211 +146,255 @@ from sqlalchemy import create_engine
 UserTable = UserSchema.to_sqlalchemy(table_name="users")
 
 engine = create_engine("postgresql://localhost/mydb")
-metadata.create_all(engine)
 
 # Type-safe queries
 with engine.connect() as conn:
     result = conn.execute(
-        UserTable.select().where(UserTable.c.is_active == True)
+        UserTable.select()
+        .where(UserTable.c.is_active == True)
+        .where(UserTable.c.age >= 18)
     )
+    for row in result:
+        print(row)
 ```
 
 ---
 
-## 📦 Project Structure
+## ✨ Key Features
+
+### Rich Field Types & Constraints
+
+| Field Type | Constraints | Example |
+|------------|-------------|---------|
+| `Integer()` | `ge`, `gt`, `le`, `lt`, `multiple_of` | `age = Integer(ge=0, le=120)` |
+| `Float()` | `ge`, `gt`, `le`, `lt` | `price = Float(gt=0)` |
+| `String()` | `min_length`, `max_length`, `pattern` | `email = String(pattern=r'^[^@]+@...')` |
+| `Boolean()` | - | `is_active = Boolean(default=True)` |
+| `Datetime()` | Coming soon! | `created_at = Datetime()` |
+| `Date()` | Coming soon! | `birth_date = Date()` |
+
+**All fields support (validation):** `nullable`, `default`, `description`
+
+**SQLAlchemy-specific:** `primary_key`, `unique`, `index`, `autoincrement`
+
+### Custom & Cross-Field Validation
+
+Use the `col()` DSL for powerful field-level and cross-field validation that works across both Pydantic and Polars:
+
+```python
+from flycatcher import Schema, Integer, Datetime, col, field_validator, model_validator
+
+class BookingSchema(Schema):
+    check_in = Datetime()
+    check_out = Datetime()
+    nights = Integer(ge=1)
+
+    @field_validator
+    def check_nights():
+        # Require at least 3 nights for bookings in July or August (peak season)
+        return (
+            (~(col('check_in').dt.month.is_in([7, 8]))) | (col('nights') >= 3),
+            "Minimum stay in July and August is 3 nights"
+        )
+
+    @model_validator
+    def check_dates():
+        return (
+            col('check_out') > col('check_in'),
+            "Check-out must be after check-in"
+        )
 
 ```
-flycatcher/
-├── src/
-│   └── flycatcher/
-│       ├── __init__.py
-│       ├── base.py              # Core Schema class
-│       ├── fields.py            # Field type definitions
-│       ├── validators.py        # Validator DSL (F())
-│       └── generators/
-│           ├── __init__.py
-│           ├── pydantic.py      # Pydantic model generator
-│           ├── polars.py        # Polars validator generator
-│           └── sqlalchemy.py    # SQLAlchemy table generator
-├── tests/
-├── examples/
-├── docs/
-├── pyproject.toml
-└── README.md
+
+### Validation Modes
+
+Polars validation supports flexible error handling:
+
+```python
+# Strict mode: Raise on validation errors (default)
+validated_df = UserValidator.validate(df, strict=True)
+
+# Non-strict mode: Filter out invalid rows
+valid_df = UserValidator.validate(df, strict=False)
+
+# Show violations for debugging
+validated_df = UserValidator.validate(df, strict=True, show_violations=True)
 ```
 
 ---
 
-## 🔧 Field Types
+## 🎯 Complete Example: ETL Pipeline
 
-| Field Type | Python Type | Polars Type | SQLAlchemy Type |
-|------------|-------------|-------------|-----------------|
-| `Integer()` | `int` | `pl.Int64` | `Integer` |
-| `String()` | `str` | `pl.Utf8` | `String/Text` |
-| `Float()` | `float` | `pl.Float64` | `Float` |
-| `Boolean()` | `bool` | `pl.Boolean` | `Boolean` |
-| `Datetime()` | `datetime` | `pl.Datetime` | `DateTime` |
-| `Date()` | `date` | `pl.Date` | `Date` |
+```python
+import polars as pl
+from flycatcher import Schema, Integer, Float, String, Datetime, col, model_validator
+from sqlalchemy import create_engine, MetaData
 
-### Field Options
+# 1. Define schema once
+class OrderSchema(Schema):
+    order_id = Integer(primary_key=True)
+    customer_email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
+    amount = Float(gt=0)
+    tax = Float(ge=0)
+    total = Float(gt=0)
+    created_at = Datetime()
 
-All fields support:
-- `primary_key=True` - Mark as primary key (SQLAlchemy)
-- `optional=True` - Allow null values
-- `default=value` - Set default value
-- `description="..."` - Add documentation
-- `unique=True` - Enforce uniqueness (SQLAlchemy)
-- `index=True` - Create database index (SQLAlchemy)
+    @model_validator
+    def check_total():
+        return (
+            col('total') == col('amount') + col('tax'),
+            "Total must equal amount + tax"
+        )
 
-String fields also support:
-- `max_length=100` - Maximum string length
+# 2. Extract & Validate with Polars (handles millions of rows)
+OrderValidator = OrderSchema.to_polars_model()
+df = pl.read_csv("orders.csv")
+validated_df = OrderValidator.validate(df, strict=True)
+
+# 3. Load to database with SQLAlchemy
+OrderTable = OrderSchema.to_sqlalchemy(table_name="orders")
+engine = create_engine("postgresql://localhost/analytics")
+
+with engine.connect() as conn:
+    conn.execute(OrderTable.insert(), validated_df.to_dicts())
+    conn.commit()
+```
+
+✅ **Result:** Validated millions of rows, enforced business rules, and loaded to database — all from one schema definition.
 
 ---
 
 ## 🏗️ Design Philosophy
 
-### ✅ What This Library Does
-
-- Provides a **single source of truth** for schema definitions
-- Generates **optimized representations** for different use cases
-- Keeps runtimes **separate** (no ORM ↔ DataFrame conversions)
-- Uses **stable public APIs** (Pydantic, Polars, SQLAlchemy)
-
-### ❌ What This Library Doesn't Do
-
-- Mix row-oriented and columnar paradigms
-- Create a "unified runtime" (that would be slow)
-- Reinvent validation logic (delegates to Polars/Pydantic)
-- Depend on internal APIs of other libraries
-
-### 🎯 The Sweet Spot
+**One schema, three representations. Each optimized for its use case.**
 
 ```
-One Schema Definition
-        ↓
-    ┌───┴───┬────────┐
-    ↓       ↓        ↓
-Pydantic  Polars  SQLAlchemy
-    ↓       ↓        ↓
-  APIs    ETL     Queries
+        Schema Definition
+               ↓
+    ┌──────────┼──────────┐
+    ↓          ↓          ↓
+Pydantic    Polars    SQLAlchemy
+   ↓          ↓          ↓
+ APIs       ETL      Database
 ```
 
-Each tool does what it's best at:
-- **Polars**: Fast bulk validation & columnar I/O
-- **Pydantic**: Row-level validation & serialization
-- **SQLAlchemy**: Type-safe database queries
+### What Flycatcher Does
+
+✅ Single source of truth for schema definitions
+<br>
+✅ Generate optimized representations for different use cases
+<br>
+✅ Keep runtimes separate (no ORM ↔ DataFrame conversions)
+<br>
+✅ Use stable public APIs (Pydantic, Polars, SQLAlchemy)
+<br>
+
+### What Flycatcher Doesn't Do
+
+❌ Mix row-oriented and columnar paradigms
+<br>
+❌ Create a "unified runtime" (that would be slow)
+<br>
+❌ Reinvent validation logic (delegates to proven libraries)
+<br>
+❌ Depend on internal APIs
 
 ---
 
-## 📊 Complete ETL Example
+## 📊 Comparison
 
-```python
-import polars as pl
-from flycatcher import Schema, Integer, Float, Datetime
-from sqlalchemy import create_engine
+| Feature | Flycatcher | SQLModel | Patito |
+|---------|-----------|----------|--------|
+| Pydantic support | ✅ | ✅ | ✅ |
+| Polars support | ✅ | ❌ | ✅ |
+| SQLAlchemy support | ✅ | ✅ | ❌ |
+| DataFrame-level DB ops | 🚧 (v0.2) | ❌ | ❌ |
+| Cross-field validation | ✅ | ⚠️ (Pydantic only) | ⚠️ (Polars only) |
+| Single schema definition | ✅ | ⚠️ (Pydantic + ORM hybrid) | ⚠️ (Pydantic + Polars hybrid) |
 
-# 1. Define schema once
-class OrderSchema(Schema):
-    order_id = Integer(primary_key=True)
-    customer_id = Integer(index=True)
-    amount = Float()
-    created_at = Datetime()
-
-# 2. Extract: Load from CSV with Polars
-OrderValidator = OrderSchema.to_polars_model()
-df = pl.read_csv("orders.csv")
-
-# 3. Transform: Validate schema
-validated_df = OrderValidator.validate(df)
-
-# 4. Load: Write to data lake
-validated_df.write_parquet("orders.parquet")
-
-# 5. Query: Use ORM for analytics
-OrderTable = OrderSchema.to_sqlalchemy()
-engine = create_engine("postgresql://localhost/analytics")
-
-with engine.connect() as conn:
-    # Load from parquet to database
-    conn.execute(OrderTable.insert(), validated_df.to_dicts())
-
-    # Query with type safety
-    high_value = conn.execute(
-        OrderTable.select().where(OrderTable.c.amount > 1000)
-    )
-```
+**Flycatcher** is the only library that generates optimized representations for all three systems while keeping them properly separated.
 
 ---
 
-## 🧪 Testing
+## 📚 Documentation
 
-```bash
-# Run tests
-pytest
-
-# With coverage
-pytest --cov=flycatcher --cov-report=html
-
-# Type checking
-mypy src/flycatcher/
-
-# Linting and formatting
-ruff check src/
-ruff format src/
-```
+- **[Getting Started](https://mmcmullan.github.io/flycatcher/)** - Installation and basics
+- **[Tutorials](https://mmcmullan.github.io/flycatcher/tutorials/)** - Step-by-step guides
+- **[How-To Guides](https://mmcmullan.github.io/flycatcher/how-to/)** - Solve specific problems
+- **[API Reference](https://mmcmullan.github.io/flycatcher/api/)** - Complete API documentation
+- **[Explanations](https://mmcmullan.github.io/flycatcher/explanations/)** - Deep dives and concepts
 
 ---
 
 ## 🛣️ Roadmap
 
-### v0.1.0 (Current)
-- [x] Core schema definition and metaclass
-- [x] Field types: Integer, String, Float, Boolean, Datetime, Date
-- [x] Constraint support (ge, le, pattern, etc.)
+### v0.1.0 (Current) 🚧
+
+- [x] Core schema definition with metaclass
+- [x] Field types with constraints (Integer, String, Float, Boolean, Datetime, Date)
 - [x] Pydantic model generator
-- [x] Polars DataFrame validator
+- [x] Polars DataFrame validator with bulk validation
 - [x] SQLAlchemy table generator
-- [x] Validator DSL (F())
-- [ ] Schema inheritance support (collect fields/validators from parent classes)
-- [ ] Test suite with 70%+ coverage
-- [ ] Documentation site
+- [x] Cross-field validators with DSL (`col()`)
+- [x] Test suite with 70%+ coverage
+- [ ] Complete documentation site
 - [ ] PyPI publication
 
 ### v0.2.0 (Planned)
+
+- [ ] `@field_validator` support in addition to existing `@model_validator`
+- [ ] Port & properly delegate other Pydantic & SQLAlchemy features
 - [ ] DataFrame-level queries (`Schema.query()`)
 - [ ] Bulk write operations (`Schema.insert()`, `Schema.update()`, `Schema.upsert()`)
-- [ ] Complete ETL loop staying columnar
+- [ ] Complete ETL loop staying columnar end-to-end
 
 ### v0.3.0+ (Future)
+
+- [ ] Additional field types (Enum, UUID, JSON, Array)
 - [ ] JOIN support in queries
 - [ ] Aggregations (GROUP BY, COUNT, SUM)
-- [ ] Enum field types
-- [ ] JSON/Array field types
-- [ ] UUID field type
 - [ ] Foreign key relationships
 - [ ] Schema migrations helper
-- [ ] CLI code generation tool
+
+See our [full roadmap](docs/dev/ROADMAP.md) for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+**Priority areas for v0.1.0:**
+- Test coverage improvements
+- Documentation enhancements
+- Bug fixes and error message improvements
 
 ---
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🤝 Contributing
+## 💬 Community
 
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+- **[GitHub Issues](https://github.com/mrmcmullan/flycatcher/issues)** - Bug reports and feature requests
+- **[GitHub Discussions](https://github.com/mrmcmullan/flycatcher/discussions)** - Questions and community discussion
+- **[Documentation](https://mrmcmullan.github.io/flycatcher)** - Full guides and API reference
 
 ---
 
-## 💬 Feedback
+<div align="center">
 
-Have questions or suggestions? Open an issue on GitHub!
+
+
+<p><strong>Built with ❤️ for the DataFrame generation</strong></p>
+
+<p>
+  <a href="https://github.com/mmcmullan/flycatcher">⭐ Star us on GitHub</a>
+  &nbsp;|&nbsp;
+  <a href="https://mmcmullan.github.io/flycatcher">📖 Read the docs</a>
+  &nbsp;|&nbsp;
+  <a href="https://github.com/mmcmullan/flycatcher/issues">🐛 Report a bug</a>
+</p>
+
+</div>

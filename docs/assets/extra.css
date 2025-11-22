@@ -1,0 +1,14 @@
+/* Make all h2 headers bold and more prominent */
+.md-typeset h2 {
+    font-weight: 600;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.12);
+    padding-bottom: 0.3rem;
+    margin-top: 1.5em;
+    margin-bottom: 1em;
+}
+
+/* Dark mode support */
+[data-md-color-scheme="slate"] .md-typeset h2 {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
