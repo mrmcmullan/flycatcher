@@ -2,16 +2,16 @@
 
 <img src="https://raw.githubusercontent.com/mrmcmullan/flycatcher/main/docs/assets/logo.png" alt="Flycatcher Logo" width="400" style="margin-bottom: 0.5em;"/>
 
-<h1 style="margin: 0.3em 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-weight: 600; color: #000;">🐦 Flycatcher</h1>
+<!-- <h1 style="margin: 0.3em 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-weight: 600; color: #000;">🐦 Flycatcher</h1> -->
 <p style="margin: 0.2em 0; font-size: 1.3em;"><strong>Define your schema once. Validate at scale. Stay columnar.</strong></p>
 <p style="margin: 0.2em 0;"><em>Built for DataFrames, powered across Pydantic, Polars, and SQLAlchemy.</em></p>
 
 <p>
-  <a href="https://github.com/mmcmullan/flycatcher/actions/workflows/ci.yml" title="CI Status">
-    <img src="https://github.com/mmcmullan/flycatcher/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <a href="https://github.com/mrmcmullan/flycatcher/actions/workflows/ci.yml" title="CI Status">
+    <img src="https://github.com/mrmcmullan/flycatcher/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <a href="https://codecov.io/gh/mmcmullan/flycatcher" title="Codecov">
-    <img src="https://codecov.io/gh/mmcmullan/flycatcher/branch/main/graph/badge.svg" alt="codecov">
+  <a href="https://codecov.io/gh/mrmcmullan/flycatcher" title="Codecov">
+    <img src="https://codecov.io/gh/mrmcmullan/flycatcher/branch/main/graph/badge.svg" alt="codecov">
   </a>
   <a href="https://badge.fury.io/py/flycatcher" title="PyPI Version">
     <img src="https://badge.fury.io/py/flycatcher.svg" alt="PyPI version">
@@ -43,7 +43,7 @@ Flycatcher is a **DataFrame-native schema layer** for Python. Define your data m
 
 ## ❓ Why Flycatcher?
 
-Many data projects need row-level validation (Pydantic), efficient bulk operations (Polars), and typed database queries (SQLAlchemy). But maintaining multiple schemas across this stack can lead to duplication, drift, and manually juggling row-oriented and columnar paradigms.
+Many data projects need **row-level validation** (Pydantic), **efficient bulk operations** (Polars), and **typed database queries** (SQLAlchemy). But maintaining multiple schemas across this stack can lead to duplication, drift, and manually juggling row-oriented and columnar paradigms.
 
 **Flycatcher solves this:** One schema definition → three optimized outputs.
 
@@ -133,7 +133,6 @@ UserValidator = UserSchema.to_polars_model()
 df = pl.read_csv("users.csv")
 validated_df = UserValidator.validate(df, strict=True)
 
-# All constraints checked in bulk!
 validated_df.write_parquet("validated_users.parquet")
 ```
 
@@ -178,7 +177,7 @@ with engine.connect() as conn:
 
 **SQLAlchemy-specific:** `primary_key`, `unique`, `index`, `autoincrement`
 
-### Cross-Field Validation
+### Custom & Cross-Field Validation
 
 Use the `col()` DSL for powerful field-level and cross-field validation that works across both Pydantic and Polars:
 
