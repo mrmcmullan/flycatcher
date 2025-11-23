@@ -48,7 +48,10 @@ jobs:
 
       - name: Run tests with coverage threshold
         run: |
-          uv run pytest --cov=flycatcher --cov-report=xml --cov-report=term-missing --cov-fail-under=70
+          # Runs pytest with coverage threshold
+          # Note: --doctest-modules is configured in pyproject.toml addopts
+          # We explicitly include src/ so doctests in source files are discovered
+          uv run pytest src/ tests/ --cov=flycatcher --cov-report=xml --cov-report=term-missing --cov-fail-under=70
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
