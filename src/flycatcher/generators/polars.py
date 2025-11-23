@@ -14,7 +14,28 @@ if TYPE_CHECKING:
 
 
 class PolarsValidator:
-    """A validator for Polars DataFrames based on schema definition."""
+    """
+    A validator for Polars DataFrames based on schema definition.
+
+    This class validates Polars DataFrames against a Flycatcher schema,
+    checking types, constraints, and cross-field validators.
+
+    Parameters
+    ----------
+    schema_cls : type[Schema]
+        A Flycatcher Schema class to validate against.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Integer, String
+        >>> import polars as pl
+        >>> class UserSchema(Schema):
+        ...     id = Integer(primary_key=True)
+        ...     name = String(min_length=1)
+        >>> validator = PolarsValidator(UserSchema)
+        >>> df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        >>> validated_df = validator.validate(df, strict=True)
+    """
 
     def __init__(self, schema_cls: "type[Schema]") -> None:
         self.schema_cls = schema_cls
