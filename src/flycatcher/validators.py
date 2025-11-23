@@ -46,11 +46,12 @@ class FieldRef:
         >>> expr = price_ref > 0
         >>> expr = discount_ref < price_ref
         >>>
-        >>> # String operations
-        >>> email_expr = col('email').str.contains('@')
+        >>> # String operations (when compiled to Polars)
+        >>> import polars as pl
+        >>> email_expr = col('email').to_polars().str.contains('@')
         >>>
         >>> # Chaining operations
-        >>> complex_expr = (col('age') >= 18) & (col('name').str.len_chars() > 0)
+        >>> complex_expr = (col('age') >= 18) & (col('name') != '')
     """
 
     def __init__(self, name: str):
@@ -389,7 +390,8 @@ class ValidatorResult:
     --------
     DSL expression (recommended):
 
-        >>> from flycatcher import col, ValidatorResult
+        >>> from flycatcher import col
+        >>> from flycatcher.validators import ValidatorResult
         >>> result = ValidatorResult(col('age') >= 18)
         >>> polars_expr, msg = result.get_polars_validator()
         >>> pydantic_validator = result.get_pydantic_validator()
@@ -397,6 +399,7 @@ class ValidatorResult:
     Explicit format:
 
         >>> import polars as pl
+        >>> from flycatcher.validators import ValidatorResult
         >>> result = ValidatorResult({
         ...     'polars': (pl.col('age') >= 18, "Must be 18+"),
         ...     'pydantic': lambda v: v.age >= 18 or ValueError("Must be 18+")
@@ -422,7 +425,8 @@ class ValidatorResult:
 
         Examples
         --------
-            >>> from flycatcher import col, ValidatorResult
+            >>> from flycatcher import col
+            >>> from flycatcher.validators import ValidatorResult
             >>> result = ValidatorResult(col('age') >= 18)
             >>> expr, msg = result.get_polars_validator()
         """
@@ -460,11 +464,16 @@ class ValidatorResult:
 
         Examples
         --------
-            >>> from flycatcher import col, ValidatorResult
+            >>> from flycatcher import col
+            >>> from flycatcher.validators import ValidatorResult
             >>> result = ValidatorResult(col('age') >= 18)
             >>> validator = result.get_pydantic_validator()
-            >>> if validator:
-            ...     validator({'age': 20})  # Validates successfully
+            >>> validator is not None
+            True
+            >>> # Validator can be called (returns validated data)
+            >>> validated = validator({'age': 20})
+            >>> validated['age']
+            20
         """
         if isinstance(self.result, dict):
             # Explicit format
@@ -497,7 +506,8 @@ class ValidatorResult:
 
         Examples
         --------
-            >>> from flycatcher import col, ValidatorResult
+            >>> from flycatcher import col
+            >>> from flycatcher.validators import ValidatorResult
             >>> result = ValidatorResult(col('age') >= 18)
             >>> result.has_pydantic_validator()
             True
