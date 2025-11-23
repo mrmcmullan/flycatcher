@@ -103,20 +103,20 @@ nav:
   - Tutorials:
       - tutorials/index.md
       - Building Your First Schema: tutorials/first-schema.md
-  - How-To Guides:
-      - how-to/index.md
-      - Custom Validators: how-to/custom-validators.md
-  - Explanations:
-      - explanations/index.md
-      - Why Flycatcher?: explanations/comparison.md
-      - The Three Outputs: explanations/three-outputs.md
-      - Validator Formats: explanations/validator-formats.md
-  - API Reference:
-      - api/index.md
-      - Schema: api/schema.md
-      - Fields: api/fields.md
-      - Validators: api/validators.md
-      - Generators: api/generators.md
+  # - How-To Guides:
+  #     - how-to/index.md
+  #     - Custom Validators: how-to/custom-validators.md
+  # - Explanations:
+  #     - explanations/index.md
+  #     - Why Flycatcher?: explanations/comparison.md
+  #     - The Three Outputs: explanations/three-outputs.md
+  #     - Validator Formats: explanations/validator-formats.md
+  # - API Reference:
+  #     - api/index.md
+  #     - Schema: api/schema.md
+  #     - Fields: api/fields.md
+  #     - Validators: api/validators.md
+  #     - Generators: api/generators.md
 
 watch:
   - src/flycatcher

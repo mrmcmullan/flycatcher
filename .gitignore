@@ -64,6 +64,8 @@ dmypy.json
 
 # Documentation
 docs/_build/
+# MkDocs build output
+site/
 
 # Cursor plans
 .cursor/plans/

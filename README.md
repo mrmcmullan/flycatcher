@@ -356,11 +356,11 @@ Pydantic    Polars    SQLAlchemy
 - [ ] Foreign key relationships
 - [ ] Schema migrations helper
 
-See our [full roadmap](docs/dev/ROADMAP.md) for details.
+<!-- See our [full roadmap](docs/dev/ROADMAP.md) for details. -->
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+Contributions are welcome! Please see our <!-- [Contributing Guide](CONTRIBUTING.md) --> for details.
 
 **Priority areas for v0.1.0:**
 - Test coverage improvements
@@ -371,7 +371,7 @@ Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) 
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see <!-- [LICENSE](LICENSE) --> for details.
 
 ---
 
