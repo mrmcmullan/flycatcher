@@ -94,7 +94,7 @@ extra_css:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/mmcmullan/flycatcher
+      link: https://github.com/mrmcmullan/flycatcher
   version:
     provider: mike
 

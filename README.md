@@ -22,7 +22,7 @@
   <a href="https://opensource.org/licenses/MIT" title="License: MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
   </a>
-  <a href="https://mmcmullan.github.io/flycatcher" title="Documentation">
+  <a href="https://mrmcmullan.github.io/flycatcher" title="Documentation">
     <img src="https://img.shields.io/badge/docs-mkdocs-blue.svg" alt="Documentation">
   </a>
 </p>
@@ -318,11 +318,11 @@ Pydantic    Polars    SQLAlchemy
 
 ## 📚 Documentation
 
-- **[Getting Started](https://mmcmullan.github.io/flycatcher/)** - Installation and basics
-- **[Tutorials](https://mmcmullan.github.io/flycatcher/tutorials/)** - Step-by-step guides
-- **[How-To Guides](https://mmcmullan.github.io/flycatcher/how-to/)** - Solve specific problems
-- **[API Reference](https://mmcmullan.github.io/flycatcher/api/)** - Complete API documentation
-- **[Explanations](https://mmcmullan.github.io/flycatcher/explanations/)** - Deep dives and concepts
+- **[Getting Started](https://mrmcmullan.github.io/flycatcher/)** - Installation and basics
+- **[Tutorials](https://mrmcmullan.github.io/flycatcher/tutorials/)** - Step-by-step guides
+- **[How-To Guides](https://mrmcmullan.github.io/flycatcher/how-to/)** - Solve specific problems
+- **[API Reference](https://mrmcmullan.github.io/flycatcher/api/)** - Complete API documentation
+- **[Explanations](https://mrmcmullan.github.io/flycatcher/explanations/)** - Deep dives and concepts
 
 ---
 
@@ -390,11 +390,11 @@ MIT License - see <!-- [LICENSE](LICENSE) --> for details.
 <p><strong>Built with ❤️ for the DataFrame generation</strong></p>
 
 <p>
-  <a href="https://github.com/mmcmullan/flycatcher">⭐ Star us on GitHub</a>
+  <a href="https://github.com/mrmcmullan/flycatcher">⭐ Star us on GitHub</a>
   &nbsp;|&nbsp;
-  <a href="https://mmcmullan.github.io/flycatcher">📖 Read the docs</a>
+  <a href="https://mrmcmullan.github.io/flycatcher">📖 Read the docs</a>
   &nbsp;|&nbsp;
-  <a href="https://github.com/mmcmullan/flycatcher/issues">🐛 Report a bug</a>
+  <a href="https://github.com/mrmcmullan/flycatcher/issues">🐛 Report a bug</a>
 </p>
 
 </div>
