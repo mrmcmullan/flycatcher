@@ -47,43 +47,51 @@ class Schema(metaclass=SchemaMeta):
     --------
     Basic schema definition:
 
-        from flycatcher import Schema, Integer, String, Datetime
-
-        class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String(min_length=1, max_length=100)
-            age = Integer(ge=0, le=120)
-            created_at = Datetime()
+        >>> from flycatcher import Schema, Integer, String, Datetime
+        >>> class UserSchema(Schema):
+        ...     id = Integer(primary_key=True)
+        ...     name = String(min_length=1, max_length=100)
+        ...     age = Integer(ge=0, le=120)
+        ...     created_at = Datetime()
 
     With cross-field validation:
 
-        from flycatcher import Schema, Integer, String, col, model_validator
-
-        class PlayerSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String()
-            age = Integer(nullable=True, ge=0, le=120)
-            created_at = Datetime()
-
-            @model_validator
-            def check_age_name_logic():
-                return (
-                    (col('age') >= 18) | col('name').str.contains('_junior'),
-                    "Users under 18 must have '_junior' in their name"
-                )
+        >>> from flycatcher import Schema, Integer, String, col, model_validator
+        >>> class PlayerSchema(Schema):
+        ...     id = Integer(primary_key=True)
+        ...     name = String()
+        ...     age = Integer(nullable=True, ge=0, le=120)
+        ...     created_at = Datetime()
+        ...
+        ...     @model_validator
+        ...     def check_age_name_logic():
+        ...         import polars as pl
+        ...         return (
+        ...             (col('age') >= 18) |
+        ...             col('name').to_polars().str.contains('_junior'),
+        ...             "Users under 18 must have '_junior' in their name"
+        ...         )
 
     Generate outputs:
 
-        # Generate Pydantic model
-        UserModel = UserSchema.to_pydantic()
-        user = UserModel(id=1, name="Alice", age=25, created_at=datetime.now())
-
-        # Generate Polars validator
-        validator = UserSchema.to_polars_model()
-        df = validator.validate(df, strict=True)
-
-        # Generate SQLAlchemy table
-        table = UserSchema.to_sqlalchemy(table_name="users")
+        >>> from datetime import datetime
+        >>> # Generate Pydantic model
+        >>> UserModel = UserSchema.to_pydantic()
+        >>> user = UserModel(id=1, name="Alice", age=25, created_at=datetime.now())
+        >>>
+        >>> # Generate Polars validator
+        >>> import polars as pl
+        >>> validator = UserSchema.to_polars_model()
+        >>> df = pl.DataFrame({
+        ...     "id": [1], "name": ["Alice"], "age": [25],
+        ...     "created_at": [datetime.now()]
+        ... })
+        >>> validated_df = validator.validate(df, strict=True)
+        >>>
+        >>> # Generate SQLAlchemy table
+        >>> table = UserSchema.to_sqlalchemy(
+        ...     table_name="users"
+        ... )
     """
 
     _fields: dict[str, Field] = {}
@@ -101,13 +109,14 @@ class Schema(metaclass=SchemaMeta):
 
         Examples
         --------
-            class UserSchema(Schema):
-                id = Integer(primary_key=True)
-                name = String()
-
-            UserModel = UserSchema.to_pydantic()
-            user = UserModel(id=1, name="Alice")
-            user.model_dump()  # {'id': 1, 'name': 'Alice'}
+            >>> from flycatcher import Schema, Integer, String
+            >>> class UserSchema(Schema):
+            ...     id = Integer(primary_key=True)
+            ...     name = String()
+            >>> UserModel = UserSchema.to_pydantic()
+            >>> user = UserModel(id=1, name="Alice")
+            >>> user.model_dump()
+            {'id': 1, 'name': 'Alice'}
         """
         from .generators.pydantic import create_pydantic_model
 
@@ -125,15 +134,14 @@ class Schema(metaclass=SchemaMeta):
 
         Examples
         --------
-            import polars as pl
-
-            class UserSchema(Schema):
-                id = Integer(primary_key=True)
-                name = String(min_length=1)
-
-            validator = UserSchema.to_polars_model()
-            df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
-            validated_df = validator.validate(df, strict=True)
+            >>> from flycatcher import Schema, Integer, String
+            >>> import polars as pl
+            >>> class UserSchema(Schema):
+            ...     id = Integer(primary_key=True)
+            ...     name = String(min_length=1)
+            >>> validator = UserSchema.to_polars_model()
+            >>> df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+            >>> validated_df = validator.validate(df, strict=True)
         """
         from .generators.polars import create_polars_validator
 
@@ -160,16 +168,15 @@ class Schema(metaclass=SchemaMeta):
 
         Examples
         --------
-            from sqlalchemy import MetaData, create_engine
-
-            class UserSchema(Schema):
-                id = Integer(primary_key=True)
-                name = String()
-
-            metadata = MetaData()
-            table = UserSchema.to_sqlalchemy(table_name="users", metadata=metadata)
-            engine = create_engine("sqlite:///example.db")
-            metadata.create_all(engine)
+            >>> from flycatcher import Schema, Integer, String
+            >>> from sqlalchemy import MetaData, create_engine
+            >>> class UserSchema(Schema):
+            ...     id = Integer(primary_key=True)
+            ...     name = String()
+            >>> metadata = MetaData()
+            >>> table = UserSchema.to_sqlalchemy(table_name="users", metadata=metadata)
+            >>> engine = create_engine("sqlite:///example.db")
+            >>> metadata.create_all(engine)
         """
         from .generators.sqlalchemy import create_sqlalchemy_table
 
@@ -187,12 +194,13 @@ class Schema(metaclass=SchemaMeta):
 
         Examples
         --------
-            class UserSchema(Schema):
-                id = Integer(primary_key=True)
-                name = String()
-
-            fields = UserSchema.fields()
-            list(fields.keys())  # ['id', 'name']
+            >>> from flycatcher import Schema, Integer, String
+            >>> class UserSchema(Schema):
+            ...     id = Integer(primary_key=True)
+            ...     name = String()
+            >>> fields = UserSchema.fields()
+            >>> list(fields.keys())
+            ['id', 'name']
         """
         return cls._fields.copy()
 
@@ -208,15 +216,16 @@ class Schema(metaclass=SchemaMeta):
 
         Examples
         --------
-            class UserSchema(Schema):
-                age = Integer()
-
-                @model_validator
-                def check_age():
-                    return col('age') >= 18
-
-            validators = UserSchema.model_validators()
-            len(validators)  # 1
+            >>> from flycatcher import Schema, Integer, col, model_validator
+            >>> class UserSchema(Schema):
+            ...     age = Integer()
+            ...
+            ...     @model_validator
+            ...     def check_age():
+            ...         return col('age') >= 18
+            >>> validators = UserSchema.model_validators()
+            >>> len(validators)
+            1
         """
         return cls._model_validators.copy()
 
@@ -247,41 +256,42 @@ def model_validator(func: Callable) -> Callable:
     --------
     Simple DSL expression:
 
-        from flycatcher import Schema, Integer, col, model_validator
-
-        class BookingSchema(Schema):
-            check_in = Integer()
-            check_out = Integer()
-
-            @model_validator
-            def check_dates():
-                return col('check_out') > col('check_in')
+        >>> from flycatcher import Schema, Integer, col, model_validator
+        >>> class BookingSchema(Schema):
+        ...     check_in = Integer()
+        ...     check_out = Integer()
+        ...
+        ...     @model_validator
+        ...     def check_dates():
+        ...         return col('check_out') > col('check_in')
 
     With error message:
 
-        class BookingSchema(Schema):
-            check_in = Integer()
-            check_out = Integer()
-
-            @model_validator
-            def check_dates():
-                return (
-                    col('check_out') > col('check_in'),
-                    "Check-out date must be after check-in date"
-                )
+        >>> class BookingSchema(Schema):
+        ...     check_in = Integer()
+        ...     check_out = Integer()
+        ...
+        ...     @model_validator
+        ...     def check_dates():
+        ...         return (
+        ...             col('check_out') > col('check_in'),
+        ...             "Check-out date must be after check-in date"
+        ...         )
 
     Complex validation with multiple conditions:
 
-        class ProductSchema(Schema):
-            price = Float()
-            discount_price = Float(nullable=True)
-
-            @model_validator
-            def check_discount():
-                return (
-                    (col('discount_price').is_null()) | (col('discount_price') < col('price')),
-                    "Discount price must be less than regular price"
-                )
+        >>> from flycatcher import Schema, Float, col, model_validator
+        >>> class ProductSchema(Schema):
+        ...     price = Float()
+        ...     discount_price = Float(nullable=True)
+        ...
+        ...     @model_validator
+        ...     def check_discount():
+        ...         return (
+        ...             (col('discount_price').is_null()) |
+        ...             (col('discount_price') < col('price')),
+        ...             "Discount price must be less than regular price"
+        ...         )
     """
     # Mark the function as a model validator
     func._is_model_validator = True  # type: ignore[attr-defined]
