@@ -9,7 +9,39 @@ _MISSING = object()
 
 
 class Field:
-    """Base field class for schema definitions."""
+    """
+    Base field class for schema definitions.
+
+    All field types inherit from this class. Fields define the structure,
+    constraints, and metadata for schema attributes.
+
+    Parameters
+    ----------
+    primary_key : bool, default False
+        Mark this field as the primary key (for database operations).
+    nullable : bool, default False
+        Allow None values for this field.
+    default : Any, optional
+        Default value for this field. Only applies to missing columns
+        unless `fill_nulls=True` is used in validation.
+    description : str, optional
+        Human-readable description of this field.
+    unique : bool, default False
+        Enforce uniqueness constraint (for database operations).
+    index : bool, default False
+        Create an index on this field (for database operations).
+    autoincrement : bool, optional
+        Enable auto-increment for integer fields. If None, auto-detected
+        for primary key integer fields.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Integer, String
+        >>> class UserSchema(Schema):
+        ...     id = Integer(primary_key=True, autoincrement=True)
+        ...     email = String(unique=True, description="User email address")
+        ...     age = Integer(nullable=True, default=0)
+    """
 
     def __init__(
         self,
@@ -89,7 +121,32 @@ class Field:
 
 
 class Integer(Field):
-    """Integer field type with numeric constraints."""
+    """
+    Integer field type with numeric constraints.
+
+    Parameters
+    ----------
+    gt : int, optional
+        Value must be greater than this number.
+    ge : int, optional
+        Value must be greater than or equal to this number.
+    lt : int, optional
+        Value must be less than this number.
+    le : int, optional
+        Value must be less than or equal to this number.
+    multiple_of : int, optional
+        Value must be a multiple of this number.
+    **kwargs
+        Additional arguments passed to `Field` (primary_key, nullable, etc.).
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Integer
+        >>> class UserSchema(Schema):
+        ...     age = Integer(ge=0, le=120)
+        ...     score = Integer(gt=0, multiple_of=10)
+        ...     id = Integer(primary_key=True, autoincrement=True)
+    """
 
     def __init__(
         self,
@@ -167,7 +224,29 @@ class Integer(Field):
 
 
 class Float(Field):
-    """Float field type with numeric constraints."""
+    """
+    Float field type with numeric constraints.
+
+    Parameters
+    ----------
+    gt : float, optional
+        Value must be greater than this number.
+    ge : float, optional
+        Value must be greater than or equal to this number.
+    lt : float, optional
+        Value must be less than this number.
+    le : float, optional
+        Value must be less than or equal to this number.
+    **kwargs
+        Additional arguments passed to `Field` (primary_key, nullable, etc.).
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Float
+        >>> class ProductSchema(Schema):
+        ...     price = Float(gt=0.0)
+        ...     discount = Float(ge=0.0, le=1.0, nullable=True)
+    """
 
     def __init__(
         self,
@@ -231,7 +310,28 @@ class Float(Field):
 
 
 class String(Field):
-    """String field type with string constraints."""
+    r"""
+    String field type with length and pattern constraints.
+
+    Parameters
+    ----------
+    min_length : int, optional
+        Minimum length of the string (inclusive).
+    max_length : int, optional
+        Maximum length of the string (inclusive).
+    pattern : str, optional
+        Regular expression pattern that the string must match.
+    **kwargs
+        Additional arguments passed to `Field` (primary_key, nullable, etc.).
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, String
+        >>> class UserSchema(Schema):
+        ...     name = String(min_length=1, max_length=100)
+        ...     email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$')
+        ...     bio = String(max_length=500, nullable=True)
+    """
 
     def __init__(
         self,
@@ -310,7 +410,16 @@ class String(Field):
 
 
 class Boolean(Field):
-    """Boolean field type."""
+    """
+    Boolean field type.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Boolean
+        >>> class UserSchema(Schema):
+        ...     is_active = Boolean(default=True)
+        ...     is_verified = Boolean(nullable=True)
+    """
 
     def get_python_type(self):
         return bool
@@ -327,7 +436,17 @@ class Boolean(Field):
 
 
 class Datetime(Field):
-    """Datetime field type."""
+    """
+    Datetime field type for datetime.datetime values.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Datetime
+        >>> from datetime import datetime
+        >>> class EventSchema(Schema):
+        ...     created_at = Datetime()
+        ...     updated_at = Datetime(nullable=True)
+    """
 
     def get_python_type(self):
         return datetime
@@ -344,7 +463,17 @@ class Datetime(Field):
 
 
 class Date(Field):
-    """Date field type."""
+    """
+    Date field type for datetime.date values.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Date
+        >>> from datetime import date
+        >>> class BookingSchema(Schema):
+        ...     check_in = Date()
+        ...     check_out = Date()
+    """
 
     def get_python_type(self):
         return date

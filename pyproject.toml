@@ -8,11 +8,18 @@ version = "0.1.0"
 description = "Define your data schema once. Validate at scale. Stay columnar."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-license = {text = "MIT"}
-authors = [
-    {name = "Matt McMullan", email = "your.email@example.com"}
+license = { text = "MIT" }
+authors = [{ name = "Matt McMullan", email = "your.email@example.com" }]
+keywords = [
+    "schema",
+    "pydantic",
+    "polars",
+    "sqlalchemy",
+    "etl",
+    "dataframe",
+    "validation",
+    "orm",
 ]
-keywords = ["schema", "pydantic", "polars", "sqlalchemy", "etl", "dataframe", "validation", "orm"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -44,10 +51,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mmcmullan/flycatcher"
-Documentation = "https://github.com/mmcmullan/flycatcher#readme"
-Repository = "https://github.com/mmcmullan/flycatcher"
-Issues = "https://github.com/mmcmullan/flycatcher/issues"
+Homepage = "https://github.com/mrmcmullan/flycatcher"
+Documentation = "https://github.com/mrmcmullan/flycatcher#readme"
+Repository = "https://github.com/mrmcmullan/flycatcher"
+Issues = "https://github.com/mrmcmullan/flycatcher/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -60,7 +67,9 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
-ignore = ["N806"]  # Allow uppercase variables in functions (e.g., class assignments)
+ignore = [
+    "N806",
+] # Allow uppercase variables in functions (e.g., class assignments)
 
 [tool.mypy]
 python_version = "3.12"
@@ -69,8 +78,12 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
+# testpaths restricts where pytest looks for test files
+# For doctests, we need pytest to also scan src/ for doctest examples
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=flycatcher --cov-report=html --cov-report=term-missing"
+# --doctest-modules will scan modules, but we need to tell it where to look
+# Adding src/ explicitly so doctests are discovered
+addopts = "--cov=flycatcher --cov-report=html --cov-report=term-missing --doctest-modules src/ tests/ -v"

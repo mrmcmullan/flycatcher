@@ -231,12 +231,21 @@ class TestColAlias:
     """Test convenience alias."""
 
     def test_col_alias_works(self):
-        """col() is an alias for FieldRef."""
+        """col() is a convenience function that creates FieldRef instances."""
 
-        assert col is FieldRef
+        # col is a function, not a direct alias
+        assert callable(col)
+        assert col is not FieldRef
+
+        # But it creates FieldRef instances
         age = col("age")
         assert isinstance(age, FieldRef)
         assert age.name == "age"
+
+        # Test it works the same way
+        price = col("price")
+        assert isinstance(price, FieldRef)
+        assert price.name == "price"
 
 
 class TestValidatorExecution:

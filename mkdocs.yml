@@ -50,7 +50,8 @@ plugins:
             show_root_heading: true
             show_root_full_path: false
             show_object_full_path: false
-            show_category_heading: true
+            show_category_heading: false
+            show_symbol_type_toc: false
             members_order: source
             heading_level: 2
             merge_init_into_class: true
@@ -91,10 +92,13 @@ markdown_extensions:
 extra_css:
   - assets/extra.css
 
+extra_javascript:
+  - assets/hide-doctest-markers.js
+
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/mmcmullan/flycatcher
+      link: https://github.com/mrmcmullan/flycatcher
   version:
     provider: mike
 
@@ -111,12 +115,15 @@ nav:
   #     - Why Flycatcher?: explanations/comparison.md
   #     - The Three Outputs: explanations/three-outputs.md
   #     - Validator Formats: explanations/validator-formats.md
-  # - API Reference:
-  #     - api/index.md
-  #     - Schema: api/schema.md
-  #     - Fields: api/fields.md
-  #     - Validators: api/validators.md
-  #     - Generators: api/generators.md
+  - API Reference:
+      - api/index.md
+      - Schema: api/schema.md
+      - Fields: api/fields.md
+      - Validators: api/validators.md
+      - Generators:
+          - Pydantic: api/generators/pydantic.md
+          - Polars: api/generators/polars.md
+          - SQLAlchemy: api/generators/sqlalchemy.md
 
 watch:
   - src/flycatcher
