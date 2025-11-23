@@ -27,20 +27,80 @@ class FieldRef:
     """
     Reference to a field that can compile to Polars expressions and Python callables.
 
-    Usage:
-        fl.col('price') > 0
-        fl.col('check_out') > fl.col('check_in')
+    FieldRef objects are created using the `col()` function and support
+    various operations that compile to both Polars and Pydantic validators.
+
+    Parameters
+    ----------
+    name : str
+        Name of the field to reference.
+
+    Examples
+    --------
+        >>> from flycatcher import col
+        >>> # Create field references
+        >>> price_ref = col('price')
+        >>> discount_ref = col('discount')
+        >>>
+        >>> # Use in expressions
+        >>> expr = price_ref > 0
+        >>> expr = discount_ref < price_ref
+        >>>
+        >>> # String operations
+        >>> email_expr = col('email').str.contains('@')
+        >>>
+        >>> # Chaining operations
+        >>> complex_expr = (col('age') >= 18) & (col('name').str.len_chars() > 0)
     """
 
     def __init__(self, name: str):
         self.name = name
 
     def to_polars(self) -> pl.Expr:
-        """Compile to Polars expression."""
+        """
+        Compile to Polars expression.
+
+        Returns
+        -------
+        pl.Expr
+            A Polars column expression for this field.
+
+        Examples
+        --------
+            >>> import polars as pl
+            >>> ref = col('price')
+            >>> expr = ref.to_polars()
+            >>> # expr is equivalent to pl.col('price')
+        """
         return pl.col(self.name)
 
     def to_python(self, values: Any) -> Any:
-        """Evaluate in Python context."""
+        """
+        Evaluate in Python context.
+
+        Parameters
+        ----------
+        values : Any
+            Object with field value (dict, Pydantic model, or object with attribute).
+
+        Returns
+        -------
+        Any
+            The value of the referenced field.
+
+        Raises
+        ------
+        AttributeError
+            If the field is not found in the values object.
+
+        Examples
+        --------
+            >>> ref = col('age')
+            >>> ref.to_python({'age': 25})
+            25
+            >>> ref.to_python(type('obj', (), {'age': 30})())
+            30
+        """
         if hasattr(values, self.name):
             return getattr(values, self.name)
         try:
@@ -273,22 +333,99 @@ class UnaryOp(_ExpressionMixin):
         return UnaryOp("~", self)
 
 
-# Convenience alias
-col = FieldRef
+def col(name: str) -> FieldRef:
+    """
+    Create a field reference for use in validator expressions.
+
+    This is a convenience function that creates a `FieldRef` object.
+    It's the primary way to reference fields in validator DSL expressions.
+
+    Parameters
+    ----------
+    name : str
+        Name of the field to reference.
+
+    Returns
+    -------
+    FieldRef
+        A field reference that can be used in expressions.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Integer, Float, col, model_validator
+        >>> class ProductSchema(Schema):
+        ...     price = Float()
+        ...     discount = Float(nullable=True)
+        ...
+        ...     @model_validator
+        ...     def check_discount():
+        ...         return (
+        ...             col('discount').is_null() | (col('discount') < col('price')),
+        ...             "Discount must be less than price"
+        ...         )
+
+    See Also
+    --------
+    FieldRef : The class returned by this function.
+    """
+    return FieldRef(name)
 
 
 class ValidatorResult:
     """
-    Wrapper for validator results that can be either:
-    1. DSL expression (compiles to both)
-    2. Dict with explicit polars/pydantic implementations
+    Wrapper for validator results supporting multiple formats.
+
+    Validator results can be in one of three formats:
+    1. DSL expression - compiles to both Polars and Pydantic
+    2. Dict with explicit 'polars' and/or 'pydantic' keys
+    3. Tuple of (expression, error_message) for DSL expressions
+
+    Parameters
+    ----------
+    result : Any
+        The validator result in any supported format.
+
+    Examples
+    --------
+    DSL expression (recommended):
+
+        >>> from flycatcher import col, ValidatorResult
+        >>> result = ValidatorResult(col('age') >= 18)
+        >>> polars_expr, msg = result.get_polars_validator()
+        >>> pydantic_validator = result.get_pydantic_validator()
+
+    Explicit format:
+
+        >>> import polars as pl
+        >>> result = ValidatorResult({
+        ...     'polars': (pl.col('age') >= 18, "Must be 18+"),
+        ...     'pydantic': lambda v: v.age >= 18 or ValueError("Must be 18+")
+        ... })
     """
 
     def __init__(self, result: Any):
         self.result = result
 
     def get_polars_validator(self) -> tuple[pl.Expr, str]:
-        """Extract Polars validator as (expression, message) tuple."""
+        """
+        Extract Polars validator as (expression, message) tuple.
+
+        Returns
+        -------
+        tuple[pl.Expr, str]
+            A tuple of (Polars expression, error message).
+
+        Raises
+        ------
+        ValueError
+            If the validator result format is invalid or missing 'polars' key.
+
+        Examples
+        --------
+            >>> from flycatcher import col, ValidatorResult
+            >>> result = ValidatorResult(col('age') >= 18)
+            >>> expr, msg = result.get_polars_validator()
+        """
         if isinstance(self.result, dict):
             # Explicit format: {'polars': ..., 'pydantic': ...}
             if "polars" not in self.result:
@@ -312,7 +449,23 @@ class ValidatorResult:
             )
 
     def get_pydantic_validator(self) -> Any | None:
-        """Extract Pydantic validator callable, or None if not available."""
+        """
+        Extract Pydantic validator callable, or None if not available.
+
+        Returns
+        -------
+        Callable | None
+            A Pydantic validator function, or None if no Pydantic validator
+            is available (e.g., Polars-only validation).
+
+        Examples
+        --------
+            >>> from flycatcher import col, ValidatorResult
+            >>> result = ValidatorResult(col('age') >= 18)
+            >>> validator = result.get_pydantic_validator()
+            >>> if validator:
+            ...     validator({'age': 20})  # Validates successfully
+        """
         if isinstance(self.result, dict):
             # Explicit format
             if "pydantic" not in self.result:
@@ -334,5 +487,19 @@ class ValidatorResult:
             return None
 
     def has_pydantic_validator(self) -> bool:
-        """Check if Pydantic validator is available."""
+        """
+        Check if Pydantic validator is available.
+
+        Returns
+        -------
+        bool
+            True if a Pydantic validator is available, False otherwise.
+
+        Examples
+        --------
+            >>> from flycatcher import col, ValidatorResult
+            >>> result = ValidatorResult(col('age') >= 18)
+            >>> result.has_pydantic_validator()
+            True
+        """
         return self.get_pydantic_validator() is not None
