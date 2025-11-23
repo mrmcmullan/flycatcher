@@ -12,3 +12,12 @@
     border-bottom-color: rgba(255, 255, 255, 0.12);
 }
 
+/* Hide doctest markers (>>> and ...) in code blocks for cleaner documentation */
+.md-typeset .highlight .gp,
+.md-typeset .highlight .go {
+    display: none;
+}
+
+/* Alternative: Hide lines starting with >>> or ... using JavaScript approach */
+/* This will be handled by a small script that strips these markers */
+

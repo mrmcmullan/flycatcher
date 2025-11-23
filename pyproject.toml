@@ -78,8 +78,12 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
+# testpaths restricts where pytest looks for test files
+# For doctests, we need pytest to also scan src/ for doctest examples
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=flycatcher --cov-report=html --cov-report=term-missing"
+# --doctest-modules will scan modules, but we need to tell it where to look
+# Adding src/ explicitly so doctests are discovered
+addopts = "--cov=flycatcher --cov-report=html --cov-report=term-missing --doctest-modules src/ tests/ -v"
