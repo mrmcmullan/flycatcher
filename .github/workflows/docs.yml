@@ -67,7 +67,8 @@ jobs:
   # Build and deploy docs to GitHub Pages on push to main
   build-and-deploy:
     name: Build and deploy documentation
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Trigger on push to main or when a pull request is closed and merged
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
