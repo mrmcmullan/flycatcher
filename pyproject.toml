@@ -9,7 +9,7 @@ description = "Define your data schema once. Validate at scale. Stay columnar."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
-authors = [{ name = "Matt McMullan", email = "your.email@example.com" }]
+authors = [{ name = "Matt McMullan", email = "mrmcmullan@hotmail.com" }]
 keywords = [
     "schema",
     "pydantic",
@@ -19,6 +19,10 @@ keywords = [
     "dataframe",
     "validation",
     "orm",
+    "data-validation",
+    "type-safety",
+    "data-processing",
+    "bulk-validation",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -29,6 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Database",
+    "Topic :: Scientific/Engineering",
     "Typing :: Typed",
 ]
 
@@ -52,7 +57,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/mrmcmullan/flycatcher"
-Documentation = "https://github.com/mrmcmullan/flycatcher#readme"
+Documentation = "https://mrmcmullan.github.io/flycatcher"
 Repository = "https://github.com/mrmcmullan/flycatcher"
 Issues = "https://github.com/mrmcmullan/flycatcher/issues"
 
