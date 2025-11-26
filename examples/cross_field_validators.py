@@ -154,7 +154,7 @@ def demonstrate_polars_validation() -> None:
     print("POLARS CROSS-FIELD VALIDATION (Bulk)")
     print("=" * 60)
 
-    GameValidator = GameResultSchema.to_polars_model()
+    GameValidator = GameResultSchema.to_polars_validator()
 
     # Mixed valid and invalid games
     games_df = pl.DataFrame(

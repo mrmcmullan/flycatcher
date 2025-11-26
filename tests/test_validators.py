@@ -262,7 +262,7 @@ class TestValidatorExecution:
             def check_age():
                 return FieldRef("age") > 18
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"age": [20, 15, 25]})
 
         result = validator.validate(df, strict=False)

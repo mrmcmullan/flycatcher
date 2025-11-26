@@ -26,15 +26,13 @@ These how-to guides are focused on **getting things done.** Each guide addresses
 - **Optimizing Validation** - Speed up validation for large datasets
 - **Chunked Processing** - Handle DataFrames too large for memory
 
----
-
 ## 📚 Other Documentation
 
 - **[Tutorials](../tutorials/index.md)** - Step-by-step learning paths for beginners
-<!-- - **[Explanations](../explanations/index.md)** - Deep dives into concepts and design decisions -->
+- **[Examples](../examples.md)** - Practical end-to-end examples of using Flycatche0
 - **[API Reference](../api/index.md)** - Complete API documentation
 
----
+<!-- - **[Explanations](../explanations/index.md)** - Deep dives into concepts and design decisions -->
 
 ## 💡 Can't Find What You Need?
 

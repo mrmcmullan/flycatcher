@@ -45,7 +45,7 @@ The typical workflow is:
 
 1. **Define a schema** using `Schema` and field types
 2. **Add validators** using `@model_validator` and the `col()` DSL
-3. **Generate outputs** using `.to_pydantic()`, `.to_polars_model()`, or `.to_sqlalchemy()`
+3. **Generate outputs** using `.to_pydantic()`, `.to_polars_validator()`, or `.to_sqlalchemy()`
 
 ```python
 from flycatcher import Schema, Integer, String, col, model_validator
@@ -61,7 +61,7 @@ class UserSchema(Schema):
 
 # Generate outputs
 UserModel = UserSchema.to_pydantic()
-UserValidator = UserSchema.to_polars_model()
+UserValidator = UserSchema.to_polars_validator()
 UserTable = UserSchema.to_sqlalchemy()
 ```
 

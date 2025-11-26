@@ -1,8 +1,9 @@
 """Validator DSL for cross-platform (Polars + Pydantic) validation."""
 
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
 import polars as pl
+from loguru import logger
 
 
 class _ExpressionMixin:
@@ -12,9 +13,8 @@ class _ExpressionMixin:
         """Convert object to Polars expression."""
         if hasattr(obj, "to_polars"):
             # obj has to_polars method, returns pl.Expr
-            return cast(pl.Expr, obj.to_polars())
-        # pl.lit always returns pl.Expr, but type stubs may not reflect this
-        return cast(pl.Expr, pl.lit(obj))
+            return obj.to_polars()  # type: ignore[no-any-return]
+        return pl.lit(obj)
 
     def _to_python(self, obj: Any, values: Any) -> Any:
         """Convert object to Python value."""
@@ -30,6 +30,9 @@ class FieldRef:
     FieldRef objects are created using the `col()` function and support
     various operations that compile to both Polars and Pydantic validators.
 
+    Primary purpose is to reference fields in custom/complex validation logic
+    (e.g. `@model_validator` decorators).
+
     Parameters
     ----------
     name : str
@@ -38,20 +41,10 @@ class FieldRef:
     Examples
     --------
         >>> from flycatcher import col
-        >>> # Create field references
-        >>> price_ref = col('price')
-        >>> discount_ref = col('discount')
-        >>>
-        >>> # Use in expressions
-        >>> expr = price_ref > 0
-        >>> expr = discount_ref < price_ref
-        >>>
-        >>> # String operations (when compiled to Polars)
-        >>> import polars as pl
-        >>> email_expr = col('email').to_polars().str.contains('@')
-        >>>
-        >>> # Chaining operations
-        >>> complex_expr = (col('age') >= 18) & (col('name') != '')
+        >>> from flycatcher.base import model_validator
+        >>> @model_validator
+        ... def check_complex_logic():
+        ...     return (col('age') >= 18) & (col('name') != '')
     """
 
     def __init__(self, name: str):
@@ -197,8 +190,7 @@ class BinaryOp(_ExpressionMixin):
         """Compile to Polars expression."""
         left_expr = self._to_polars(self.left)
         right_expr = self._to_polars(self.right)
-        # POLARS_OPS is typed, but mypy can't infer return type from lambda
-        return cast(pl.Expr, self.POLARS_OPS[self.op](left_expr, right_expr))
+        return self.POLARS_OPS[self.op](left_expr, right_expr)
 
     def to_python(self, values: Any) -> Any:
         """Evaluate in Python context."""
@@ -276,8 +268,7 @@ class UnaryOp(_ExpressionMixin):
         operand_expr = self._to_polars(self.operand)
         if self.op not in self.POLARS_OPS:
             raise ValueError(f"Unknown unary op: {self.op}")
-        # POLARS_OPS is typed, but mypy can't infer return type from lambda
-        return cast(pl.Expr, self.POLARS_OPS[self.op](operand_expr))
+        return self.POLARS_OPS[self.op](operand_expr)
 
     def to_python(self, values: Any) -> Any:
         """Evaluate in Python context."""
@@ -377,6 +368,7 @@ class ValidatorResult:
     Wrapper for validator results supporting multiple formats.
 
     Validator results can be in one of three formats:
+
     1. DSL expression - compiles to both Polars and Pydantic
     2. Dict with explicit 'polars' and/or 'pydantic' keys
     3. Tuple of (expression, error_message) for DSL expressions
@@ -477,7 +469,12 @@ class ValidatorResult:
         """
         if isinstance(self.result, dict):
             # Explicit format
+            # NOTE: Do we want to raise an error if 'pydantic' is not present?
             if "pydantic" not in self.result:
+                logger.warning(
+                    "Dict validator does not have 'pydantic' key. "
+                    "This validator will only be used for Polars validation."
+                )
                 return None  # Polars-only
             return self.result["pydantic"]
         elif hasattr(self.result, "to_python"):

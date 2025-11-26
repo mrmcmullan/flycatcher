@@ -1,106 +1,85 @@
-name-template: 'v$RESOLVED_VERSION'
-tag-template: 'v$RESOLVED_VERSION'
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
 
 categories:
-  - title: '🚀 Features'
+  - title: "🚀 Features"
     labels:
-      - 'feature'
-      - 'enhancement'
-      - 'feat'
-  - title: '🐛 Bug Fixes'
+      - "feature"
+      - "enhancement"
+      - "feat"
+  - title: "🐛 Bug Fixes"
     labels:
-      - 'fix'
-      - 'bugfix'
-      - 'bug'
+      - "fix"
+      - "bugfix"
+      - "bug"
     exclude-labels:
-      - 'enhancement'
-      - 'feature'
-      - 'feat'
-  - title: '📚 Documentation'
+      - "enhancement"
+      - "feature"
+      - "feat"
+  - title: "📚 Documentation"
     labels:
-      - 'documentation'
-      - 'docs'
+      - "documentation"
+      - "docs"
     exclude-labels:
-      - 'enhancement'
-      - 'feature'
-      - 'feat'
-      - 'fix'
-      - 'bug'
-      - 'test'
-      - 'ci'
-      - 'chore'
-  - title: '🧪 Tests'
+      - "enhancement"
+      - "feature"
+      - "feat"
+      - "fix"
+      - "bug"
+      - "test"
+      - "ci"
+      - "chore"
+  - title: "🧪 Tests"
     labels:
-      - 'test'
-      - 'tests'
-  - title: '⚡ Performance'
+      - "test"
+      - "tests"
+  - title: "⚡ Performance"
     labels:
-      - 'performance'
-      - 'perf'
-  - title: '⚠️ Deprecations'
+      - "performance"
+      - "perf"
+  - title: "⚠️ Deprecations"
     labels:
-      - 'deprecation'
-      - 'depr'
-  - title: '🔧 Maintenance'
+      - "deprecation"
+      - "depr"
+  - title: "🔧 Maintenance"
     labels:
-      - 'chore'
-      - 'refactor'
-      - 'style'
-      - 'ci'
-      - 'build'
-      - 'release'
+      - "chore"
+      - "refactor"
+      - "style"
+      - "ci"
+      - "build"
+      - "release"
 
-change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
 change-title-escapes: '\<*_&'
 
 # Strip conventional commit prefixes from titles in release notes
 replacers:
-  - search: '/^feat: /i'
-    replace: ''
-  - search: '/^fix: /i'
-    replace: ''
-  - search: '/^chore: /i'
-    replace: ''
-  - search: '/^docs?: /i'
-    replace: ''
-  - search: '/^style: /i'
-    replace: ''
-  - search: '/^refactor: /i'
-    replace: ''
-  - search: '/^perf: /i'
-    replace: ''
-  - search: '/^test: /i'
-    replace: ''
-  - search: '/^ci: /i'
-    replace: ''
-  - search: '/^build: /i'
-    replace: ''
-  - search: '/^depr: /i'
-    replace: ''
-  - search: '/^release: /i'
-    replace: ''
+  # Remove conventional commits from titles
+  - search: '/- (build|chore|ci|depr|docs|feat|fix|perf|refactor|release|test)(\(.*\))?(\!)?\: /g'
+    replace: "- "
 
 version-resolver:
   major:
     labels:
-      - 'major'
-      - 'breaking'
+      - "major"
+      - "breaking"
   minor:
     labels:
-      - 'minor'
-      - 'feature'
-      - 'enhancement'
-      - 'feat'
+      - "minor"
+      - "feature"
+      - "enhancement"
+      - "feat"
   patch:
     labels:
-      - 'patch'
-      - 'fix'
-      - 'bugfix'
-      - 'bug'
-      - 'chore'
-      - 'refactor'
-      - 'docs'
-      - 'test'
+      - "patch"
+      - "fix"
+      - "bugfix"
+      - "bug"
+      - "chore"
+      - "refactor"
+      - "docs"
+      - "test"
   default: patch
 
 template: |
@@ -116,39 +95,38 @@ template: |
 
 autolabeler:
   # Title-based labels (checked first, take priority over file-based labels)
-  - label: 'enhancement'
+  - label: "enhancement"
     title:
-      - '/^feat:/i'
-      - '/^feature:/i'
-  - label: 'bug'
+      - "/^feat:/i"
+      - "/^feature:/i"
+  - label: "bug"
     title:
-      - '/^fix:/i'
-      - '/^bugfix:/i'
-  - label: 'deprecation'
+      - "/^fix:/i"
+      - "/^bugfix:/i"
+  - label: "deprecation"
     title:
-      - '/^depr:/i'
-      - '/^deprecation:/i'
-  - label: 'chore'
+      - "/^depr:/i"
+      - "/^deprecation:/i"
+  - label: "chore"
     title:
-      - '/^chore:/i'
-  - label: 'test'
+      - "/^chore:/i"
+  - label: "test"
     title:
-      - '/^test:/i'
-      - '/^tests:/i'
-  - label: 'ci'
+      - "/^test:/i"
+      - "/^tests:/i"
+  - label: "ci"
     title:
-      - '/^ci:/i'
-      - '/^build:/i'
-  - label: 'performance'
+      - "/^ci:/i"
+      - "/^build:/i"
+  - label: "performance"
     title:
-      - '/^perf:/i'
-      - '/^performance:/i'
-  - label: 'documentation'
+      - "/^perf:/i"
+      - "/^performance:/i"
+  - label: "documentation"
     title:
-      - '/^docs?:/i'
+      - "/^docs?:/i"
   # File-based labels (applied by .github/labeler.yml, but excluded from wrong categories via exclude-labels)
-  - label: 'dependencies'
+  - label: "dependencies"
     files:
-      - 'pyproject.toml'
-      - 'uv.lock'
-
+      - "pyproject.toml"
+      - "uv.lock"

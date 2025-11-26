@@ -38,7 +38,7 @@ def demonstrate_strict_mode() -> None:
     print("STRICT MODE: Raises exceptions on validation errors")
     print("=" * 60)
 
-    GameValidator = GameStatsSchema.to_polars_model()
+    GameValidator = GameStatsSchema.to_polars_validator()
 
     # Valid data - passes without issues
     valid_data = pl.DataFrame(
@@ -85,7 +85,7 @@ def demonstrate_non_strict_mode() -> None:
     print("NON-STRICT MODE: Filters invalid rows")
     print("=" * 60)
 
-    GameValidator = GameStatsSchema.to_polars_model()
+    GameValidator = GameStatsSchema.to_polars_validator()
 
     # Mixed valid and invalid data
     mixed_data = pl.DataFrame(
@@ -130,7 +130,7 @@ def demonstrate_violation_reporting() -> None:
     print("VIOLATION REPORTING: Detailed error information")
     print("=" * 60)
 
-    GameValidator = GameStatsSchema.to_polars_model()
+    GameValidator = GameStatsSchema.to_polars_validator()
 
     # Data with multiple validation issues
     problematic_data = pl.DataFrame(
