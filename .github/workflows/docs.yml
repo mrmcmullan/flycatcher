@@ -31,7 +31,7 @@ jobs:
   # Test docs build on PRs
   test-docs:
     name: Test documentation build
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -67,8 +67,8 @@ jobs:
   # Build and deploy docs to GitHub Pages on push to main
   build-and-deploy:
     name: Build and deploy documentation
-    # Trigger on push to main or when a pull request is closed and merged
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
+    # Trigger on push to main, when a pull request is closed and merged, or manual dispatch
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

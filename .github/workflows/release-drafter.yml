@@ -18,8 +18,9 @@ jobs:
   update_release_draft:
     name: Update release draft
     runs-on: ubuntu-latest
-    # Run on PR open/edit (for autolabeler) OR on merge/push (for draft release)
+    # Run on PR open/edit (for autolabeler) OR on merge/push (for draft release) OR manual dispatch
     if: |
+      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
       (github.event_name == 'pull_request' && github.event.action != 'closed')

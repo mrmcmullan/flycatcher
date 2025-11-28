@@ -1,12 +1,7 @@
 # Label PRs based on changed files
-
-'documentation':
-  - changed-files:
-    - any-glob-to-any-file: ['docs/**/*', '*.md', 'mkdocs.yml']
-
-'tests':
-  - changed-files:
-    - any-glob-to-any-file: 'tests/**/*'
+# Note: Categorization labels (documentation, tests, ci) are handled by
+# conventional commit prefixes in PR titles via release-drafter autolabeler.
+# Only organizational/component labels are applied here.
 
 'core':
   - changed-files:
@@ -27,8 +22,4 @@
 'dependencies':
   - changed-files:
     - any-glob-to-any-file: ['pyproject.toml', 'uv.lock']
-
-'ci':
-  - changed-files:
-    - any-glob-to-any-file: '.github/**/*'
 
