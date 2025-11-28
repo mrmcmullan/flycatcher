@@ -32,7 +32,7 @@ class PolarsValidator:
         >>> class UserSchema(Schema):
         ...     id = Integer(primary_key=True)
         ...     name = String(min_length=1)
-        >>> validator = PolarsValidator(UserSchema)
+        >>> validator = UserSchema.to_polars_validator()
         >>> df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
         >>> validated_df = validator.validate(df, strict=True)
     """
@@ -127,6 +127,7 @@ class PolarsValidator:
         Notes
         -----
         Behavior of defaults:
+
         - Missing columns with defaults are always added to the DataFrame
         - Existing null values are filled with defaults only if fill_nulls=True
         - If a field is nullable without a default, nulls are preserved

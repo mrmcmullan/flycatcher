@@ -7,6 +7,14 @@ body:
     attributes:
       value: |
         Thanks for taking the time to suggest a chore! Please fill in the form below.
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: A clear and concise title for the chore
+      placeholder: [CHORE] Brief description of the task
+    validations:
+      required: true
   - type: checkboxes
     id: checks
     attributes:

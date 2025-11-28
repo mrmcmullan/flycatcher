@@ -44,7 +44,7 @@ uv add flycatcher
 
 Let's start with a minimal schema. Create a new Python file called `blog.py`:
 
-```python
+```python title="blog.py"
 from flycatcher import Schema, Integer, String
 
 class PostSchema(Schema):
@@ -173,7 +173,7 @@ For bulk operations (like validating 10,000 blog posts from a CSV), use the Pola
 import polars as pl
 
 # Generate Polars validator
-PostValidator = PostSchema.to_polars_model()
+PostValidator = PostSchema.to_polars_validator()
 
 # Create sample data (imagine this came from a CSV)
 df = pl.DataFrame({
@@ -195,7 +195,7 @@ print(validated_df)
 
 ### What's Happening?
 
-1. **`to_polars_model()`** generates a validator optimized for DataFrames
+1. **`to_polars_validator()`** generates a validator optimized for DataFrames
 2. **`validate()`** checks all constraints in bulk (much faster than row-by-row!)
 3. **`strict=True`** raises an error if any row fails validation
 
@@ -300,7 +300,7 @@ post = Post(
 print(f"✓ Validated single post: {post.title}")
 
 # 3. Validate bulk data with Polars
-PostValidator = PostSchema.to_polars_model()
+PostValidator = PostSchema.to_polars_validator()
 df = pl.read_csv("posts.csv")  # Imagine you have this file
 validated_df = PostValidator.validate(df, strict=True)
 print(f"✓ Validated {len(validated_df)} posts from CSV")
@@ -325,11 +325,11 @@ with engine.connect() as conn:
 
 Congratulations! 🎉 You've built your first Flycatcher schema and learned how to use all three outputs.
 
-### Go Deeper
+### Go Deeper (Coming Soon!)
 
-<!-- - **[Custom Validators](../how-to/custom-validators.md)** - Add cross-field validation -->
-<!-- - **[Field Types Reference](../api/fields.md)** - Explore all available field types -->
-<!-- - **[Why Flycatcher?](../explanations/comparison.md)** - Understand how it compares to alternatives -->
+- **[Custom Validators]<!--(../how-to/custom-validators.md)-->**  - Add cross-field validation
+- **[Field Types Reference]<!--(../api/fields.md) -->** - Explore all available field types
+- **[Why Flycatcher?]<!--(../explanations/comparison.md) -->** - Understand how it compares to alternatives
 
 ### Try These Exercises
 
@@ -343,8 +343,6 @@ Congratulations! 🎉 You've built your first Flycatcher schema and learned how 
 <!-- - 📖 [API Reference](../api/index.md) -->
 - 💬 [GitHub Discussions](https://github.com/mrmcmullan/flycatcher/discussions)
 - 🐛 [Report Issues](https://github.com/mrmcmullan/flycatcher/issues)
-
----
 
 ## Full Example Code
 
@@ -409,7 +407,7 @@ def main():
     print(f"✓ Created post: {post.title}")
 
     # 2. Polars for bulk validation
-    PostValidator = PostSchema.to_polars_model()
+    PostValidator = PostSchema.to_polars_validator()
     df = pl.DataFrame({
         "id": [1, 2, 3],
         "title": ["First Post", "Second Post", "Third Post"],
@@ -450,5 +448,6 @@ Run it with:
 python blog.py
 ```
 
-Happy schema building! 🚀
+<br>
 
+**Happy schema building!** 🚀

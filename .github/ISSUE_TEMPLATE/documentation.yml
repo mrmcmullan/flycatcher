@@ -7,6 +7,14 @@ body:
     attributes:
       value: |
         Thanks for taking the time to suggest a documentation improvement! Please fill in the form below.
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: A clear and concise title for the documentation improvement
+      placeholder: [DOC] Brief description of the improvement
+    validations:
+      required: true
   - type: textarea
     id: description
     attributes:

@@ -39,11 +39,9 @@ Flycatcher is a **DataFrame-native schema layer** for Python. Define your data m
 
 **Built for modern data workflows:** Validate millions of rows at high speed, keep schema drift at zero, and stay columnar end-to-end.
 
----
-
 ## ❓ Why Flycatcher?
 
-Many data projects need **row-level validation** (Pydantic), **efficient bulk operations** (Polars), and **typed database queries** (SQLAlchemy). But maintaining multiple schemas across this stack can lead to duplication, drift, and manually juggling row-oriented and columnar paradigms.
+Modern Python data projects need **row-level validation** (Pydantic), **efficient bulk operations** (Polars), and **typed database queries** (SQLAlchemy). But maintaining multiple schemas across this stack can lead to duplication, drift, and manually juggling row-oriented and columnar paradigms.
 
 **Flycatcher solves this:** One schema definition → three optimized outputs.
 
@@ -66,7 +64,7 @@ class ProductSchema(Schema):
 
 # Generate three optimized representations
 ProductModel = ProductSchema.to_pydantic()         # → Pydantic BaseModel
-ProductValidator = ProductSchema.to_polars_model() # → Polars DataFrame validator
+ProductValidator = ProductSchema.to_polars_validator() # → Polars DataFrame validator
 ProductTable = ProductSchema.to_sqlalchemy()       # → SQLAlchemy Table
 ```
 
@@ -107,7 +105,7 @@ from datetime import datetime
 
 User = UserSchema.to_pydantic()
 
-# Validates constraints automatically
+# Validates constraints automatically via Pydantic
 user = User(
     id=1,
     username="alice",
@@ -122,12 +120,12 @@ print(user.model_dump_json())
 
 ### Use Polars for Bulk Validation
 
-Perfect for ETL, large-scale data pipelines, and DataFrame-level validation:
+Perfect for DataFrame-level validation:
 
 ```python
 import polars as pl
 
-UserValidator = UserSchema.to_polars_model()
+UserValidator = UserSchema.to_polars_validator()
 
 # Validate 1M+ rows with blazing speed
 df = pl.read_csv("users.csv")
@@ -170,8 +168,8 @@ with engine.connect() as conn:
 | `Float()` | `ge`, `gt`, `le`, `lt` | `price = Float(gt=0)` |
 | `String()` | `min_length`, `max_length`, `pattern` | `email = String(pattern=r'^[^@]+@...')` |
 | `Boolean()` | - | `is_active = Boolean(default=True)` |
-| `Datetime()` | Coming soon! | `created_at = Datetime()` |
-| `Date()` | Coming soon! | `birth_date = Date()` |
+| `Datetime()` | - | `created_at = Datetime()` |
+| `Date()` | - | `birth_date = Date()` |
 
 **All fields support (validation):** `nullable`, `default`, `description`
 
@@ -182,20 +180,12 @@ with engine.connect() as conn:
 Use the `col()` DSL for powerful field-level and cross-field validation that works across both Pydantic and Polars:
 
 ```python
-from flycatcher import Schema, Integer, Datetime, col, field_validator, model_validator
+from flycatcher import Schema, Integer, Datetime, col, model_validator
 
 class BookingSchema(Schema):
     check_in = Datetime()
     check_out = Datetime()
     nights = Integer(ge=1)
-
-    @field_validator
-    def check_nights():
-        # Require at least 3 nights for bookings in July or August (peak season)
-        return (
-            (~(col('check_in').dt.month.is_in([7, 8]))) | (col('nights') >= 3),
-            "Minimum stay in July and August is 3 nights"
-        )
 
     @model_validator
     def check_dates():
@@ -203,6 +193,21 @@ class BookingSchema(Schema):
             col('check_out') > col('check_in'),
             "Check-out must be after check-in"
         )
+
+    @model_validator
+    def check_minimum_stay():
+        # For advanced operations like .dt.month, use explicit Polars format
+        import polars as pl
+        return {
+            'polars': (
+                (~pl.col('check_in').dt.month().is_in([7, 8])) | (pl.col('nights') >= 3),
+                "Minimum stay in July and August is 3 nights"
+            ),
+            'pydantic': lambda v: (
+                v.check_in.month not in [7, 8] or v.nights >= 3,
+                "Minimum stay in July and August is 3 nights"
+            )
+        }
 
 ```
 
@@ -247,7 +252,7 @@ class OrderSchema(Schema):
         )
 
 # 2. Extract & Validate with Polars (handles millions of rows)
-OrderValidator = OrderSchema.to_polars_model()
+OrderValidator = OrderSchema.to_polars_validator()
 df = pl.read_csv("orders.csv")
 validated_df = OrderValidator.validate(df, strict=True)
 
@@ -295,9 +300,56 @@ Pydantic    Polars    SQLAlchemy
 <br>
 ❌ Create a "unified runtime" (that would be slow)
 <br>
-❌ Reinvent validation logic (delegates to proven libraries)
+❌ Reinvent validation logic (delegates to proven libraries when possible)
 <br>
 ❌ Depend on internal APIs
+
+---
+
+## ⚠️ Current Limitations (v0.1.0)
+
+Flycatcher v0.1.0 is an **alpha release**. The core functionality works perfectly, but some advanced features are planned for future versions:
+
+### Polars DSL
+
+The `col()` DSL supports basic operations (`>`, `<`, `==`, `+`, `-`, `*`, `/`, `&`, `|`), but advanced Polars operations require explicit format:
+
+- ❌ `.is_null()`, `.is_not_null()` - Use explicit Polars: `pl.col('field').is_null()`
+- ❌ `.str.contains()`, `.str.startswith()` - Use explicit Polars or field constraints
+- ❌ `.dt.month`, `.dt.year` - Use explicit Polars format
+- ❌ `.is_in([...])` - Use explicit Polars format
+
+**Workaround**: Use the explicit format in `@model_validator`:
+```python
+@model_validator
+def check():
+    return {
+        'polars': (pl.col('field').is_null(), "Message"),
+        'pydantic': lambda v: (v.field is None, "Message")
+    }
+```
+
+### Pydantic Features
+- ❌ `@field_validator` - Only `@model_validator` is supported (coming in v0.2.0)
+- ❌ Field aliases and computed fields (coming in v0.2.0+)
+- ❌ Custom serialization options (coming in v0.2.0+)
+
+**Workaround**: Use `@model_validator` for all validation needs.
+
+### SQLAlchemy Features
+- ❌ Foreign key relationships - Must be added manually after table generation (coming in v0.3.0+)
+- ❌ Composite primary keys - Only single-field primary keys supported (coming in v0.3.0+)
+- ❌ Function-based defaults (e.g., `default=func.now()`) - Only literal defaults supported
+
+**Workaround**: Add relationships and composite keys manually in SQLAlchemy after table generation.
+
+### Field Types
+- ❌ Enum, UUID, JSON, Array field types (coming in v0.3.0+)
+- ❌ Numeric/Decimal field type (coming in v0.3.0+)
+
+**Workaround**: Use `String` with pattern validation or manual handling.
+
+<!-- **See [Limitations Guide](docs/dev/MISSING-FUNCTIONALITY.md) for details and workarounds.** -->
 
 ---
 
@@ -328,7 +380,7 @@ Pydantic    Polars    SQLAlchemy
 
 ## 🛣️ Roadmap
 
-### v0.1.0 (Current) 🚧
+### v0.1.0 (Released) 🚀
 
 - [x] Core schema definition with metaclass
 - [x] Field types with constraints (Integer, String, Float, Boolean, Datetime, Date)
@@ -337,41 +389,50 @@ Pydantic    Polars    SQLAlchemy
 - [x] SQLAlchemy table generator
 - [x] Cross-field validators with DSL (`col()`)
 - [x] Test suite with 70%+ coverage
-- [ ] Complete documentation site
-- [ ] PyPI publication
+- [x] Complete documentation site
+- [x] PyPI publication
 
-### v0.2.0 (Planned)
+### v0.2.0 (In Progress) 🚧
+
+**Theme:** Enhanced validation and database operations
 
 - [ ] `@field_validator` support in addition to existing `@model_validator`
-- [ ] Port & properly delegate other Pydantic & SQLAlchemy features
+- [ ] Enhanced Polars DSL: `.is_null()`, `.is_not_null()`, `.str.contains()`, `.str.startswith()`, `.dt.month`, `.dt.year`, `.is_in([...])`
+- [ ] Pydantic enhancements: field aliases, computed fields, custom serialization
+- [ ] Enable inheritance of `Schema` to create subclasses with different fields
+- [ ] For more details, see the [GitHub Milestone for v0.2.0](https://github.com/mrmcmullan/flycatcher/milestone/2)
+
+### v0.3.0 (Planned)
+
 - [ ] DataFrame-level queries (`Schema.query()`)
 - [ ] Bulk write operations (`Schema.insert()`, `Schema.update()`, `Schema.upsert()`)
 - [ ] Complete ETL loop staying columnar end-to-end
+- [ ] Add PascalCase metaclass
+- [ ] Additional Pydantic validation modes (`mode='before'`, `mode='wrap'`)
+- [ ] For more details, see the [GitHub Milestone for v0.3.0](https://github.com/mrmcmullan/flycatcher/milestone/3)
 
-### v0.3.0+ (Future)
+### v0.4.0+ (Future)
 
-- [ ] Additional field types (Enum, UUID, JSON, Array)
+**Theme:** Advanced field types and relationships
+
+- [ ] Additional field types: Enum, UUID, JSON, Array, Numeric/Decimal, Time, Binary, Interval
+- [ ] SQLAlchemy relationships: Foreign keys, composite primary keys
+- [ ] SQLAlchemy function-based defaults (e.g., `default=func.now()`)
 - [ ] JOIN support in queries
 - [ ] Aggregations (GROUP BY, COUNT, SUM)
-- [ ] Foreign key relationships
 - [ ] Schema migrations helper
 
 <!-- See our [full roadmap](docs/dev/ROADMAP.md) for details. -->
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see our <!-- [Contributing Guide](CONTRIBUTING.md) --> for details.
-
-**Priority areas for v0.1.0:**
-- Test coverage improvements
-- Documentation enhancements
-- Bug fixes and error message improvements
+Contributions are welcome! Please see our [Contributing Guide]<!--(CONTRIBUTING.md) --> for details.
 
 ---
 
 ## 📄 License
 
-MIT License - see <!-- [LICENSE](LICENSE) --> for details.
+MIT License - see [LICENSE]([LICENSE](https://github.com/mrmcmullan/flycatcher?tab=MIT-1-ov-file)) for details.
 
 ---
 

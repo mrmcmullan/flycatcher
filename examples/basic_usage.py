@@ -71,7 +71,7 @@ def main() -> None:
 
     # 2. Generate Polars validator for bulk DataFrame validation
     # Perfect for ETL pipelines, data processing, and large-scale validation
-    PlayerValidator = PlayerSchema.to_polars_model()
+    PlayerValidator = PlayerSchema.to_polars_validator()
     print("[OK] Generated Polars validator")
 
     # Create a DataFrame with multiple players

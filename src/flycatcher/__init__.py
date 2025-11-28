@@ -1,7 +1,7 @@
 """
 Flycatcher: DataFrame-Native Data Layer
 
-Define your data models once, generate Pydantic, Polars, and SQLAlchemy representations.
+Define your schema once. Validate at scale. Stay columnar.
 """
 
 from .base import Schema, model_validator

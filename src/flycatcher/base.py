@@ -1,4 +1,4 @@
-"""Core Schema class with metaclass magic and custom validators."""
+"""Core `Schema` class with metaclass magic and custom validators."""
 
 from typing import Callable
 
@@ -13,6 +13,7 @@ class SchemaMeta(type):
         # fields/validators before collecting current class fields. Child fields
         # should override parent fields with same name. See test_schema.py
         # test_inherited_fields_collected for expected behavior.
+
         # Collect all Field instances
         fields: dict[str, Field] = {}
         model_validators: list[Callable] = []
@@ -81,7 +82,7 @@ class Schema(metaclass=SchemaMeta):
         >>>
         >>> # Generate Polars validator
         >>> import polars as pl
-        >>> validator = UserSchema.to_polars_model()
+        >>> validator = UserSchema.to_polars_validator()
         >>> df = pl.DataFrame({
         ...     "id": [1], "name": ["Alice"], "age": [25],
         ...     "created_at": [datetime.now()]
@@ -123,9 +124,9 @@ class Schema(metaclass=SchemaMeta):
         return create_pydantic_model(cls)
 
     @classmethod
-    def to_polars_model(cls):
+    def to_polars_validator(cls):
         """
-        Generate a Polars validation model from this schema.
+        Generate a Polars validator from this schema.
 
         Returns
         -------
@@ -139,7 +140,7 @@ class Schema(metaclass=SchemaMeta):
             >>> class UserSchema(Schema):
             ...     id = Integer(primary_key=True)
             ...     name = String(min_length=1)
-            >>> validator = UserSchema.to_polars_model()
+            >>> validator = UserSchema.to_polars_validator()
             >>> df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
             >>> validated_df = validator.validate(df, strict=True)
         """
@@ -236,6 +237,7 @@ def model_validator(func: Callable) -> Callable:
 
     Use this decorator to add custom validation logic that involves multiple
     fields. The validator function can return either:
+
     1. A DSL expression (recommended) - compiles to both Polars and Pydantic
     2. A dict with 'polars' and/or 'pydantic' keys for explicit implementations
 

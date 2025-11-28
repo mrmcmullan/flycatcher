@@ -75,7 +75,7 @@ def transform_data(raw_df: pl.DataFrame) -> pl.DataFrame:
     print("\n[TRANSFORM] Validating data with Flycatcher schema...")
 
     # Generate Polars validator from schema
-    StatsValidator = SeasonStatsSchema.to_polars_model()
+    StatsValidator = SeasonStatsSchema.to_polars_validator()
 
     # Validate the data
     # Non-strict mode filters invalid rows instead of raising

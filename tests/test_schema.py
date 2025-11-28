@@ -129,7 +129,7 @@ class TestModelValidators:
         assert len(validators) == 1
 
         # Should work with both generators
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         assert validator is not None
 
         model = UserSchema.to_pydantic()

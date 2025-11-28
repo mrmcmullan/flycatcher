@@ -290,7 +290,7 @@ import polars as pl
 from datetime import datetime
 
 # Generate Polars validator
-BookingValidator = BookingSchema.to_polars_model()
+BookingValidator = BookingSchema.to_polars_validator()
 
 # Valid data
 valid_df = pl.DataFrame({

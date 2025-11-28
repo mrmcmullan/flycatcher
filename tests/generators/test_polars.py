@@ -17,13 +17,13 @@ class TestPolarsValidatorCreation:
 
     def test_validator_creation(self, simple_schema):
         """Validator can be created from schema."""
-        validator = simple_schema.to_polars_model()
+        validator = simple_schema.to_polars_validator()
         assert validator is not None
         assert hasattr(validator, "validate")
 
     def test_schema_property(self, simple_schema):
         """Validator exposes Polars schema."""
-        validator = simple_schema.to_polars_model()
+        validator = simple_schema.to_polars_validator()
         schema = validator.schema
 
         assert "id" in schema
@@ -38,7 +38,7 @@ class TestPolarsValidation:
 
     def test_valid_dataframe_passes(self, simple_schema, sample_dataframe):
         """Valid DataFrame passes validation."""
-        validator = simple_schema.to_polars_model()
+        validator = simple_schema.to_polars_validator()
         result = validator.validate(sample_dataframe, strict=True)
 
         assert result.height == 3
@@ -46,7 +46,7 @@ class TestPolarsValidation:
 
     def test_missing_required_column_raises(self, simple_schema):
         """Missing required column raises error."""
-        validator = simple_schema.to_polars_model()
+        validator = simple_schema.to_polars_validator()
 
         # Missing id or name should raise
         df_missing = pl.DataFrame({"id": [1, 2]})  # Missing name
@@ -57,7 +57,7 @@ class TestPolarsValidation:
         self, constrained_schema, invalid_dataframe
     ):
         """Strict mode raises on constraint violations."""
-        validator = constrained_schema.to_polars_model()
+        validator = constrained_schema.to_polars_validator()
 
         # Constraint violations in strict mode raise ValueError
         with pytest.raises(ValueError, match="Constraint violation"):
@@ -67,7 +67,7 @@ class TestPolarsValidation:
         self, constrained_schema, invalid_dataframe
     ):
         """Non-strict mode filters invalid rows."""
-        validator = constrained_schema.to_polars_model()
+        validator = constrained_schema.to_polars_validator()
         result = validator.validate(invalid_dataframe, strict=False)
 
         # Should filter out invalid rows
@@ -81,7 +81,7 @@ class TestPolarsValidation:
             name = String()
             age = Integer(nullable=True)
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"], "age": [25, None]})
 
         result = validator.validate(df, strict=True)
@@ -95,7 +95,7 @@ class TestPolarsValidation:
             id = Integer(primary_key=True)
             name = String()  # Not nullable
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"id": [1, 2], "name": ["Alice", None]})
 
         with pytest.raises(ValueError, match="null values"):
@@ -103,7 +103,7 @@ class TestPolarsValidation:
 
     def test_default_values_added(self, schema_with_defaults):
         """Missing columns with defaults are added."""
-        validator = schema_with_defaults.to_polars_model()
+        validator = schema_with_defaults.to_polars_validator()
         df = pl.DataFrame({"id": [1, 2]})  # Missing name, count, etc.
 
         result = validator.validate(df, strict=True)
@@ -115,7 +115,7 @@ class TestPolarsValidation:
 
     def test_fill_nulls_with_defaults(self, schema_with_defaults):
         """fill_nulls=True replaces nulls with defaults."""
-        validator = schema_with_defaults.to_polars_model()
+        validator = schema_with_defaults.to_polars_validator()
         df = pl.DataFrame(
             {
                 "id": [1, 2],
@@ -141,7 +141,7 @@ class TestPolarsConstraints:
         class UserSchema(Schema):
             age = Integer(ge=18, le=65)
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"age": [25, 17, 70, 30]})
 
         # Non-strict mode filters invalid rows
@@ -154,7 +154,7 @@ class TestPolarsConstraints:
         class UserSchema(Schema):
             name = String(min_length=3, max_length=10)
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"name": ["Alice", "Al", "VeryLongName"]})
 
         result = validator.validate(df, strict=False)
@@ -166,7 +166,7 @@ class TestPolarsConstraints:
         class UserSchema(Schema):
             email = String(pattern=r"^[^@]+@[^@]+\.[^@]+$")
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"email": ["alice@example.com", "invalid", "bob@test"]})
 
         result = validator.validate(df, strict=False)
@@ -180,7 +180,7 @@ class TestPolarsModelValidators:
         """Cross-field validators work in Polars."""
         from datetime import date
 
-        validator = schema_with_validator.to_polars_model()
+        validator = schema_with_validator.to_polars_validator()
 
         # Valid: end > start
         df_valid = pl.DataFrame(
@@ -213,7 +213,7 @@ class TestPolarsModelValidators:
                 age_ref = FieldRef("age")
                 return (age_ref >= 18) == FieldRef("is_adult")
 
-        validator = UserSchema.to_polars_model()
+        validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"age": [20, 15, 25], "is_adult": [True, False, True]})
 
         result = validator.validate(df, strict=False)
