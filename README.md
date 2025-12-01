@@ -314,7 +314,6 @@ Flycatcher v0.1.0 is an **alpha release**. The core functionality works perfectl
 
 The `col()` DSL supports basic operations (`>`, `<`, `==`, `+`, `-`, `*`, `/`, `&`, `|`), but advanced Polars operations require explicit format:
 
-- ❌ `.is_null()`, `.is_not_null()` - Use explicit Polars: `pl.col('field').is_null()`
 - ❌ `.str.contains()`, `.str.startswith()` - Use explicit Polars or field constraints
 - ❌ `.dt.month`, `.dt.year` - Use explicit Polars format
 - ❌ `.is_in([...])` - Use explicit Polars format

@@ -86,6 +86,14 @@ col('phone').str.contains(r'^\d{3}-\d{3}-\d{4}$')
 ~(col('status') == 'deleted')
 ```
 
+### Null Checks
+
+```python
+# Null / not-null helpers
+col('discount').is_null()
+col('discount').is_not_null()
+```
+
 ### Date/Time Operations
 
 ```python
@@ -240,13 +248,13 @@ class ProductSchema(Schema):
     def check_sale_price():
         """If sale price is provided, it must be less than regular price."""
         return (
-            (col('sale_price') == None)  # Skip if not provided
+            col('sale_price').is_null()  # Skip if not provided
             | (col('sale_price') < col('regular_price')),  # Validate if provided
             "Sale price must be less than regular price when provided"
         )
 ```
 
-**Pattern:** `(field == None) | (validation_condition)`
+**Pattern:** `col('field').is_null() | (validation_condition)`
 
 This ensures validation only applies when the optional field has a value.
 
