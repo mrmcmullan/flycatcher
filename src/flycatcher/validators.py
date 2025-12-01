@@ -140,6 +140,14 @@ class FieldRef:
     def __or__(self, other: Any) -> "BinaryOp":
         return BinaryOp(self, "|", other)
 
+    def is_null(self) -> "UnaryOp":
+        """Check if the field value is null/None."""
+        return UnaryOp("is_null", self)
+
+    def is_not_null(self) -> "UnaryOp":
+        """Check if the field value is not null/None."""
+        return UnaryOp("is_not_null", self)
+
     def __invert__(self) -> "UnaryOp":
         return UnaryOp("~", self)
 
@@ -252,11 +260,15 @@ class UnaryOp(_ExpressionMixin):
     POLARS_OPS: dict[str, Callable[[pl.Expr], pl.Expr]] = {
         "abs": lambda expr: expr.abs(),
         "~": lambda expr: ~expr,
+        "is_null": lambda expr: expr.is_null(),
+        "is_not_null": lambda expr: expr.is_not_null(),
     }
 
     PYTHON_OPS = {
         "abs": abs,
         "~": lambda val: not val,
+        "is_null": lambda val: val is None,
+        "is_not_null": lambda val: val is not None,
     }
 
     def __init__(self, op: str, operand: Any):
