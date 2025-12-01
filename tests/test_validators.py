@@ -135,6 +135,39 @@ class TestUnaryOp:
         assert result["abs_value"][1] == 5
         assert result["abs_value"][2] == 10
 
+    def test_is_null_polars(self):
+        """is_null() compiles to Polars."""
+        is_null = FieldRef("is_null")
+
+        df = pl.DataFrame({"is_null": [None, True, False]})
+        result = df.filter(is_null.is_null().to_polars())
+        assert result.height == 1
+        assert result["is_null"][0] is None
+
+    def test_is_not_null_polars(self):
+        """is_not_null() compiles to Polars."""
+        is_not_null = FieldRef("is_not_null")
+        df = pl.DataFrame({"is_not_null": [None, True, False]})
+        result = df.filter(is_not_null.is_not_null().to_polars())
+        assert result.height == 2
+        assert result["is_not_null"][0] is True
+        assert result["is_not_null"][1] is False
+
+    def test_is_null_python(self):
+        """is_null() evaluates in Python."""
+        is_null = FieldRef("is_null")
+        expr = is_null.is_null()
+        assert expr.to_python({"is_null": None}) is True
+        assert expr.to_python({"is_null": True}) is False
+        assert expr.to_python({"is_null": False}) is False
+
+    def test_is_not_null_python(self):
+        """is_not_null() evaluates in Python."""
+        is_not_null = FieldRef("is_not_null")
+        expr = is_not_null.is_not_null()
+        assert expr.to_python({"is_not_null": True}) is True
+        assert expr.to_python({"is_not_null": None}) is False
+
 
 class TestValidatorResult:
     """Test ValidatorResult wrapper."""
