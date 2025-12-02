@@ -5,7 +5,7 @@ on:
     branches:
       - main
   pull_request:
-    types: [opened, edited, synchronize, closed]
+    types: [opened, edited, synchronize]
     branches:
       - main
   workflow_dispatch:
@@ -18,12 +18,13 @@ jobs:
   update_release_draft:
     name: Update release draft
     runs-on: ubuntu-latest
-    # Run on PR open/edit (for autolabeler) OR on merge/push (for draft release) OR manual dispatch
+    # Run on PR open/edit (for autolabeler) OR on push to main (for draft release) OR manual dispatch
+    # Note: We don't trigger on PR merge/close because merged PRs also trigger a push event,
+    # which would cause duplicate release drafts
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
-      (github.event_name == 'pull_request' && github.event.action != 'closed')
+      github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code
