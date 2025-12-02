@@ -1,5 +1,6 @@
 """Validator DSL for cross-platform (Polars + Pydantic) validation."""
 
+import re
 from typing import Any, Callable
 
 import polars as pl
@@ -155,6 +156,11 @@ class FieldRef:
         """Absolute value."""
         return UnaryOp("abs", self)
 
+    @property
+    def str(self) -> "StringAccessor":
+        """Access string operations on this field."""
+        return StringAccessor(self)
+
 
 class BinaryOp(_ExpressionMixin):
     """Binary operation that can compile to both Polars and Python."""
@@ -253,6 +259,11 @@ class BinaryOp(_ExpressionMixin):
         """Negation."""
         return UnaryOp("~", self)
 
+    @property
+    def str(self) -> "StringAccessor":
+        """Access string operations on this expression."""
+        return StringAccessor(self)
+
 
 class UnaryOp(_ExpressionMixin):
     """Unary operation that can compile to both Polars and Python."""
@@ -334,6 +345,430 @@ class UnaryOp(_ExpressionMixin):
 
     def __invert__(self) -> "UnaryOp":
         """Negation."""
+        return UnaryOp("~", self)
+
+    @property
+    def str(self) -> "StringAccessor":
+        """Access string operations on this expression."""
+        return StringAccessor(self)
+
+
+class StringAccessor:
+    """
+    Accessor for string operations on expressions.
+
+    Provides Polars-style string methods that compile to both Polars and Python.
+
+    Examples
+    --------
+        >>> from flycatcher import col, model_validator
+        >>> @model_validator
+        ... def check_email():
+        ...     return col('email').str.contains('@')
+        >>> @model_validator
+        ... def check_name():
+        ...     return col('name').str.starts_with('Dr.')
+        >>> @model_validator
+        ... def check_tag_length():
+        ...     return col('tag').str.len_chars() <= 20
+    """
+
+    def __init__(self, expr: Any):
+        """Initialize with the expression to operate on."""
+        self.expr = expr
+
+    def contains(self, pattern: str) -> "StringOp":
+        """
+        Check if string contains pattern.
+
+        Parameters
+        ----------
+        pattern : str
+            Pattern to search for (supports regex).
+
+        Returns
+        -------
+        StringOp
+            Boolean expression that can be used in validators.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_email():
+            ...     return col('email').str.contains('@')
+        """
+        return StringOp("contains", self.expr, pattern)
+
+    def starts_with(self, prefix: str) -> "StringOp":
+        """
+        Check if string starts with prefix.
+
+        Parameters
+        ----------
+        prefix : str
+            Prefix to check for.
+
+        Returns
+        -------
+        StringOp
+            Boolean expression that can be used in validators.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_name():
+            ...     return col('name').str.starts_with('Dr.')
+        """
+        return StringOp("starts_with", self.expr, prefix)
+
+    def ends_with(self, suffix: str) -> "StringOp":
+        """
+        Check if string ends with suffix.
+
+        Parameters
+        ----------
+        suffix : str
+            Suffix to check for.
+
+        Returns
+        -------
+        StringOp
+            Boolean expression that can be used in validators.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_email_domain():
+            ...     return col('email').str.ends_with('.com')
+        """
+        return StringOp("ends_with", self.expr, suffix)
+
+    def len_chars(self) -> "StringOp":
+        """
+        Get the length of the string in characters.
+
+        Returns
+        -------
+        StringOp
+            Numeric expression representing string length.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_tag_length():
+            ...     return col('tag').str.len_chars() <= 20
+        """
+        return StringOp("len_chars", self.expr, None)
+
+    def strip_chars(self) -> "StringOp":
+        """
+        Remove leading and trailing whitespace.
+
+        Returns
+        -------
+        StringOp
+            String expression that can be chained.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_name_not_empty():
+            ...     # Check that name has content after stripping whitespace
+            ...     return col('name').str.strip_chars().str.len_chars() > 0
+        """
+        return StringOp("strip_chars", self.expr, None)
+
+    def to_lowercase(self) -> "StringOp":
+        """
+        Convert string to lowercase.
+
+        Returns
+        -------
+        StringOp
+            String expression that can be chained.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_email_lowercase():
+            ...     # Validate that email is already lowercase
+            ...     return col('email').str.to_lowercase() == col('email')
+        """
+        return StringOp("to_lowercase", self.expr, None)
+
+    def to_uppercase(self) -> "StringOp":
+        """
+        Convert string to uppercase.
+
+        Returns
+        -------
+        StringOp
+            String expression that can be chained.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_code_uppercase():
+            ...     # Validate that code is already uppercase
+            ...     return col('code').str.to_uppercase() == col('code')
+        """
+        return StringOp("to_uppercase", self.expr, None)
+
+    def replace(self, pattern: str, value: str) -> "StringOp":
+        """
+        Replace matching substrings with a new value.
+
+        Parameters
+        ----------
+        pattern : str
+            Pattern to match (supports regex).
+        value : str
+            Replacement value.
+
+        Returns
+        -------
+        StringOp
+            String expression that can be chained.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_phone_format():
+            ...     # Validate that phone has exactly 10 digits when cleaned
+            ...     cleaned = col('phone').str.replace(r'[^\\d]', '')
+            ...     return cleaned.str.len_chars() == 10
+        """
+        return StringOp("replace", self.expr, (pattern, value))
+
+    def extract(self, pattern: str, group_index: int = 0) -> "StringOp":
+        """
+        Extract the target capture group from provided pattern.
+
+        Parameters
+        ----------
+        pattern : str
+            Regex pattern with capture groups.
+        group_index : int, default 0
+            Index of the capture group to extract (0 = full match).
+
+        Returns
+        -------
+        StringOp
+            String expression that can be chained.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_email_has_domain():
+            ...     # Validate that email has a domain (extract and check it exists)
+            ...     domain = col('email').str.extract(r'@(.+)', 1)
+            ...     return domain.is_not_null()
+        """
+        return StringOp("extract", self.expr, (pattern, group_index))
+
+    def slice(self, offset: int, length: int | None = None) -> "StringOp":
+        """
+        Extract a substring from each string value.
+
+        Parameters
+        ----------
+        offset : int
+            Starting position (0-indexed).
+        length : int, optional
+            Length of substring. If None, extracts to end.
+
+        Returns
+        -------
+        StringOp
+            String expression that can be chained.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_code_prefix():
+            ...     # Validate that code starts with 'ABC'
+            ...     prefix = col('code').str.slice(0, 3)
+            ...     return prefix == 'ABC'
+        """
+        return StringOp("slice", self.expr, (offset, length))
+
+    def count_matches(self, pattern: str) -> "StringOp":
+        """
+        Count all successive non-overlapping regex matches.
+
+        Parameters
+        ----------
+        pattern : str
+            Regex pattern to match.
+
+        Returns
+        -------
+        StringOp
+            Numeric expression representing match count.
+
+        Examples
+        --------
+            >>> from flycatcher import col, model_validator
+            >>> @model_validator
+            ... def check_has_numbers():
+            ...     return col('text').str.count_matches(r'\\d+') >= 1
+        """
+        return StringOp("count_matches", self.expr, pattern)
+
+
+class StringOp(_ExpressionMixin):
+    """
+    String operation that can compile to both Polars and Python.
+
+    Supports both boolean-returning operations (contains, starts_with, etc.)
+    and string-returning operations (strip, lower, upper) that can be chained.
+    """
+
+    # Polars string operations
+    POLARS_OPS: dict[str, Callable[[pl.Expr, Any], pl.Expr]] = {
+        "contains": lambda expr, pattern: expr.str.contains(pattern),
+        "starts_with": lambda expr, prefix: expr.str.starts_with(prefix),
+        "ends_with": lambda expr, suffix: expr.str.ends_with(suffix),
+        "len_chars": lambda expr, _: expr.str.len_chars(),
+        "strip_chars": lambda expr, _: expr.str.strip_chars(),
+        "to_lowercase": lambda expr, _: expr.str.to_lowercase(),
+        "to_uppercase": lambda expr, _: expr.str.to_uppercase(),
+        "replace": lambda expr, args: expr.str.replace_all(args[0], args[1]),
+        "extract": lambda expr, args: expr.str.extract(args[0], group_index=args[1]),
+        "slice": lambda expr, args: (
+            expr.str.slice(args[0], length=args[1])
+            if len(args) > 1 and args[1] is not None
+            else expr.str.slice(args[0])
+        ),
+        "count_matches": lambda expr, pattern: expr.str.count_matches(pattern),
+    }
+
+    # Python string operations
+    PYTHON_OPS: dict[str, Callable[[str, Any], Any]] = {
+        "contains": lambda val, pattern: (
+            bool(re.search(pattern, val)) if val is not None else False
+        ),
+        "starts_with": (
+            lambda val, prefix: val.startswith(prefix) if val is not None else False
+        ),
+        "ends_with": (
+            lambda val, suffix: val.endswith(suffix) if val is not None else False
+        ),
+        "len_chars": lambda val, _: len(val) if val is not None else 0,
+        "strip_chars": lambda val, _: val.strip() if val is not None else None,
+        "to_lowercase": lambda val, _: val.lower() if val is not None else None,
+        "to_uppercase": lambda val, _: val.upper() if val is not None else None,
+        "replace": lambda val, args: (
+            re.sub(args[0], args[1], val) if val is not None else None
+        ),
+        "extract": lambda val, args: (
+            (lambda m: m.group(args[1]) if m else None)(re.search(args[0], val))
+            if val is not None
+            else None
+        ),
+        "slice": lambda val, args: (
+            val[args[0] : args[0] + args[1]]
+            if val is not None and len(args) > 1 and args[1] is not None
+            else val[args[0] :]
+            if val is not None
+            else None
+        ),
+        "count_matches": lambda val, pattern: (
+            len(re.findall(pattern, val)) if val is not None else 0
+        ),
+    }
+
+    def __init__(self, op: str, operand: Any, arg: Any = None):
+        """
+        Initialize string operation.
+
+        Parameters
+        ----------
+        op : str
+            Operation name (contains, starts_with, etc.).
+        operand : Any
+            The expression to operate on.
+        arg : Any, optional
+            Additional argument for operations like contains(pattern).
+        """
+        self.op = op
+        self.operand = operand
+        self.arg = arg
+
+    def to_polars(self) -> pl.Expr:
+        """Compile to Polars expression."""
+        operand_expr = self._to_polars(self.operand)
+        if self.op not in self.POLARS_OPS:
+            raise ValueError(f"Unknown string op: {self.op}")
+        return self.POLARS_OPS[self.op](operand_expr, self.arg)
+
+    def to_python(self, values: Any) -> Any:
+        """Evaluate in Python context."""
+        operand_val = self._to_python(self.operand, values)
+        if self.op not in self.PYTHON_OPS:
+            raise ValueError(f"Unknown string op: {self.op}")
+        return self.PYTHON_OPS[self.op](operand_val, self.arg)
+
+    # Support chaining operations - string ops can be compared, used in binary ops, etc.
+    def __gt__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, ">", other)
+
+    def __ge__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, ">=", other)
+
+    def __lt__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "<", other)
+
+    def __le__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "<=", other)
+
+    def __eq__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
+        return BinaryOp(self, "==", other)
+
+    def __ne__(self, other: Any) -> "BinaryOp":  # type: ignore[override]
+        # Intentional override: DSL returns expression objects, not bool
+        return BinaryOp(self, "!=", other)
+
+    def __add__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "+", other)
+
+    def __sub__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "-", other)
+
+    def __mul__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "*", other)
+
+    def __truediv__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "/", other)
+
+    def __and__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "&", other)
+
+    def __or__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "|", other)
+
+    @property
+    def str(self) -> "StringAccessor":
+        """Access string operations on this expression (for chaining)."""
+        return StringAccessor(self)
+
+    def abs(self) -> "UnaryOp":
+        """Absolute value (for numeric results like len_chars)."""
+        return UnaryOp("abs", self)
+
+    def __invert__(self) -> "UnaryOp":
+        """Negation (for boolean results)."""
         return UnaryOp("~", self)
 
 

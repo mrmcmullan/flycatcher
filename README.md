@@ -180,9 +180,11 @@ with engine.connect() as conn:
 Use the `col()` DSL for powerful field-level and cross-field validation that works across both Pydantic and Polars:
 
 ```python
-from flycatcher import Schema, Integer, Datetime, col, model_validator
+from flycatcher import Schema, Integer, String, Datetime, col, model_validator
 
 class BookingSchema(Schema):
+    email = String()
+    phone = String()
     check_in = Datetime()
     check_out = Datetime()
     nights = Integer(ge=1)
@@ -193,6 +195,11 @@ class BookingSchema(Schema):
             col('check_out') > col('check_in'),
             "Check-out must be after check-in"
         )
+
+    @model_validator
+    def check_phone_format():
+        cleaned = col('phone').str.replace(r'[^\d]', '')
+        return (cleaned.str.len_chars() == 10, "Phone must have 10 digits")
 
     @model_validator
     def check_minimum_stay():
