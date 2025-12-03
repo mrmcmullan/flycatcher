@@ -217,6 +217,54 @@ class TestFloatConstraints:
         assert kwargs["le"] == 1.0
 
 
+class TestDatetimeConstraints:
+    """Test Datetime field constraints."""
+
+    def test_datetime_range_constraints(self):
+        """Datetime constraints generate correct Polars expressions."""
+        lower = datetime(2024, 1, 1, 0, 0, 0)
+        upper = datetime(2024, 1, 10, 0, 0, 0)
+        field = Datetime(gt=lower, lt=upper)
+        field.name = "ts"
+
+        constraints = field.get_polars_constraints()
+        assert len(constraints) == 2
+
+        df = pl.DataFrame(
+            {
+                "ts": [
+                    datetime(2024, 1, 5, 0, 0, 0),  # between
+                    datetime(2024, 1, 1, 0, 0, 0),  # equal to lower
+                    datetime(2024, 1, 10, 0, 0, 0),  # equal to upper
+                ]
+            }
+        )
+
+        expr1, msg1 = constraints[0]  # gt constraint
+        expr2, msg2 = constraints[1]  # lt constraint
+
+        result1 = df.filter(expr1)
+        result2 = df.filter(expr2)
+
+        # For gt, middle and upper values are > lower
+        assert result1.height == 2
+        # For lt, lower and middle values are < upper
+        assert result2.height == 2
+        assert "must be >" in msg1
+        assert "must be <" in msg2
+
+    def test_datetime_pydantic_kwargs(self):
+        """Datetime constraints translate to Pydantic field kwargs."""
+        lower = datetime(2024, 1, 1, 0, 0, 0)
+        upper = datetime(2024, 1, 10, 0, 0, 0)
+        field = Datetime(gt=lower, le=upper)
+
+        kwargs = field.get_pydantic_field_kwargs()
+
+        assert kwargs["gt"] == lower
+        assert kwargs["le"] == upper
+
+
 class TestFieldProperties:
     """Test field metadata properties."""
 
