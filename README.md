@@ -168,7 +168,7 @@ with engine.connect() as conn:
 | `Float()` | `ge`, `gt`, `le`, `lt` | `price = Float(gt=0)` |
 | `String()` | `min_length`, `max_length`, `pattern` | `email = String(pattern=r'^[^@]+@...')` |
 | `Boolean()` | - | `is_active = Boolean(default=True)` |
-| `Datetime()` | - | `created_at = Datetime()` |
+| `Datetime()` | `ge`, `gt`, `le`, `lt` | `created_at = Datetime(ge=datetime(2020, 1, 1))` |
 | `Date()` | - | `birth_date = Date()` |
 
 **All fields support (validation):** `nullable`, `default`, `description`
@@ -181,12 +181,13 @@ Use the `col()` DSL for powerful field-level and cross-field validation that wor
 
 ```python
 from flycatcher import Schema, Integer, String, Datetime, col, model_validator
+from datetime import datetime
 
 class BookingSchema(Schema):
     email = String()
     phone = String()
-    check_in = Datetime()
-    check_out = Datetime()
+    check_in = Datetime(ge=datetime(2024, 1, 1))
+    check_out = Datetime(ge=datetime(2024, 1, 1))
     nights = Integer(ge=1)
 
     @model_validator
