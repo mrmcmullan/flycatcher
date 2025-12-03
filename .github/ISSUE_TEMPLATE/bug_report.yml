@@ -1,5 +1,6 @@
 name: '🐞 Bug report'
 description: Report an issue with flycatcher.
+title: '[BUG] '
 labels: bug
 
 body:
@@ -7,14 +8,6 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report a bug! Please fill in the form below.
-  - type: input
-    id: title
-    attributes:
-      label: Title
-      description: A clear and concise title for the bug report
-      placeholder: [BUG] Brief description of the issue
-    validations:
-      required: true
   - type: checkboxes
     id: checks
     attributes:

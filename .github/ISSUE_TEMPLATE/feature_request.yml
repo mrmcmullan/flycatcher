@@ -1,5 +1,6 @@
 name: '✨ Feature request'
 description: Suggest a new feature or enhancement for flycatcher.
+title: '[FEAT] '
 labels: enhancement
 
 body:
@@ -7,14 +8,6 @@ body:
     attributes:
       value: |
         Thanks for taking the time to suggest a feature! Please fill in the form below.
-  - type: input
-    id: title
-    attributes:
-      label: Title
-      description: A clear and concise title for the feature request
-      placeholder: [FEAT] Brief description of the feature
-    validations:
-      required: true
   - type: checkboxes
     id: checks
     attributes:
