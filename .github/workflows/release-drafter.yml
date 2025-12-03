@@ -18,13 +18,8 @@ jobs:
   update_release_draft:
     name: Update release draft
     runs-on: ubuntu-latest
-    # Run on PR open/edit (for autolabeler) OR on push to main (for draft release) OR manual dispatch
-    # Note: We don't trigger on PR merge/close because merged PRs also trigger a push event,
-    # which would cause duplicate release drafts
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
-      github.event_name == 'pull_request'
+    # Run on PR events (for autolabeler) OR push to main (for draft release) OR manual dispatch
+    # Note: Release-drafter automatically only drafts releases on push events, and only labels on PR events
 
     steps:
       - name: Checkout code
@@ -34,7 +29,7 @@ jobs:
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-autolabeler: false  # Always enable autolabeler - it will only label on PR open, only draft on merge
+          disable-autolabeler: false  # Autolabeler labels PRs on PR events, draft releases only on push to main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
