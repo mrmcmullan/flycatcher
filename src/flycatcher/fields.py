@@ -4,6 +4,8 @@ import warnings
 from datetime import date, datetime
 from typing import Any, Callable
 
+import polars as pl
+
 # Sentinel value to distinguish "no default provided" from "default is None"
 _MISSING = object()
 
@@ -169,8 +171,6 @@ class Integer(Field):
         return int
 
     def get_polars_dtype(self):
-        import polars as pl
-
         return pl.Int64
 
     def get_sqlalchemy_type(self):
@@ -180,8 +180,6 @@ class Integer(Field):
 
     def get_polars_constraints(self) -> list[tuple[Any, str]]:
         """Generate Polars validation expressions."""
-        import polars as pl
-
         constraints = list(super().get_polars_constraints())
         assert self.name is not None  # Checked by base class
         col = pl.col(self.name)
@@ -267,8 +265,6 @@ class Float(Field):
         return float
 
     def get_polars_dtype(self):
-        import polars as pl
-
         return pl.Float64
 
     def get_sqlalchemy_type(self):
@@ -278,8 +274,6 @@ class Float(Field):
 
     def get_polars_constraints(self) -> list[tuple[Any, str]]:
         """Generate Polars validation expressions."""
-        import polars as pl
-
         constraints = list(super().get_polars_constraints())
         assert self.name is not None  # Checked by base class
         col = pl.col(self.name)
@@ -350,8 +344,6 @@ class String(Field):
         return str
 
     def get_polars_dtype(self):
-        import polars as pl
-
         return pl.Utf8
 
     def get_sqlalchemy_type(self):
@@ -364,8 +356,6 @@ class String(Field):
 
     def get_polars_constraints(self) -> list[tuple[Any, str]]:
         """Generate Polars validation expressions."""
-        import polars as pl
-
         constraints = list(super().get_polars_constraints())
         assert self.name is not None  # Checked by base class
         col = pl.col(self.name)
@@ -425,8 +415,6 @@ class Boolean(Field):
         return bool
 
     def get_polars_dtype(self):
-        import polars as pl
-
         return pl.Boolean
 
     def get_sqlalchemy_type(self):
@@ -448,18 +436,69 @@ class Datetime(Field):
         ...     updated_at = Datetime(nullable=True)
     """
 
+    def __init__(
+        self,
+        *,
+        gt: datetime | None = None,  # Greater than
+        ge: datetime | None = None,  # Greater than or equal
+        lt: datetime | None = None,  # Less than
+        le: datetime | None = None,  # Less than or equal
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.gt = gt
+        self.ge = ge
+        self.lt = lt
+        self.le = le
+
     def get_python_type(self):
         return datetime
 
     def get_polars_dtype(self):
-        import polars as pl
-
         return pl.Datetime
 
     def get_sqlalchemy_type(self):
         from sqlalchemy import DateTime
 
         return DateTime
+
+    def get_polars_constraints(self) -> list[tuple[Any, str]]:
+        """Generate Polars validation expressions."""
+        constraints = list(super().get_polars_constraints())
+        assert self.name is not None  # Checked by base class
+        col = pl.col(self.name)
+
+        if self.gt is not None:
+            constraints.append(
+                (col > self.gt, f"{self.name} must be > {self.gt.isoformat()}")
+            )
+        if self.ge is not None:
+            constraints.append(
+                (col >= self.ge, f"{self.name} must be >= {self.ge.isoformat()}")
+            )
+        if self.lt is not None:
+            constraints.append(
+                (col < self.lt, f"{self.name} must be < {self.lt.isoformat()}")
+            )
+        if self.le is not None:
+            constraints.append(
+                (col <= self.le, f"{self.name} must be <= {self.le.isoformat()}")
+            )
+
+        return constraints
+
+    def get_pydantic_field_kwargs(self) -> dict[str, Any]:
+        """Return kwargs for Pydantic Field()."""
+        kwargs: dict[str, Any] = {}
+        if self.gt is not None:
+            kwargs["gt"] = self.gt
+        if self.ge is not None:
+            kwargs["ge"] = self.ge
+        if self.lt is not None:
+            kwargs["lt"] = self.lt
+        if self.le is not None:
+            kwargs["le"] = self.le
+        return kwargs
 
 
 class Date(Field):
@@ -479,8 +518,6 @@ class Date(Field):
         return date
 
     def get_polars_dtype(self):
-        import polars as pl
-
         return pl.Date
 
     def get_sqlalchemy_type(self):
