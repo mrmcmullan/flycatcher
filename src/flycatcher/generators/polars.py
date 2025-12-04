@@ -27,11 +27,11 @@ class PolarsValidator:
 
     Examples
     --------
-        >>> from flycatcher import Schema, Integer, String
+        >>> from flycatcher import Field, Schema
         >>> import polars as pl
         >>> class UserSchema(Schema):
-        ...     id = Integer(primary_key=True)
-        ...     name = String(min_length=1)
+        ...     id: int = Field(primary_key=True)
+        ...     name: str = Field(min_length=1)
         >>> validator = UserSchema.to_polars_validator()
         >>> df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
         >>> validated_df = validator.validate(df, strict=True)

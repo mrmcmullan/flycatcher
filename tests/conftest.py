@@ -1,20 +1,11 @@
 """Shared fixtures for flycatcher tests."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 import polars as pl
 import pytest
 
-from flycatcher import (
-    Boolean,
-    Date,
-    Datetime,
-    Float,
-    Integer,
-    Schema,
-    String,
-    model_validator,
-)
+from flycatcher import Field, Schema, model_validator
 
 
 @pytest.fixture
@@ -22,9 +13,9 @@ def simple_schema():
     """Simple schema with basic fields."""
 
     class SimpleSchema(Schema):
-        id = Integer(primary_key=True)
-        name = String()
-        age = Integer(nullable=True)
+        id: int = Field(primary_key=True)
+        name: str
+        age: int | None = None
 
     return SimpleSchema
 
@@ -34,13 +25,13 @@ def constrained_schema():
     """Schema with various constraints."""
 
     class ConstrainedSchema(Schema):
-        id = Integer(primary_key=True, ge=1)
-        name = String(min_length=1, max_length=100)
-        age = Integer(ge=0, le=120)
-        price = Float(gt=0.0)
-        email = String(pattern=r"^[^@]+@[^@]+\.[^@]+$")
-        is_active = Boolean(default=True)
-        created_at = Datetime()
+        id: int = Field(primary_key=True, ge=1)
+        name: str = Field(min_length=1, max_length=100)
+        age: int = Field(ge=0, le=120)
+        price: float = Field(gt=0.0)
+        email: str = Field(pattern=r"^[^@]+@[^@]+\.[^@]+$")
+        is_active: bool = True
+        created_at: datetime
 
     return ConstrainedSchema
 
@@ -50,8 +41,8 @@ def schema_with_validator():
     """Schema with cross-field model validator."""
 
     class ValidatedSchema(Schema):
-        start_date = Date()
-        end_date = Date()
+        start_date: date
+        end_date: date
 
         @model_validator
         def check_dates():
@@ -69,11 +60,11 @@ def schema_with_defaults():
     """Schema with default values."""
 
     class DefaultsSchema(Schema):
-        id = Integer(primary_key=True)
-        name = String(default="unknown")
-        count = Integer(default=0)
-        is_active = Boolean(default=True)
-        created_at = Datetime(default=datetime(2024, 1, 1))
+        id: int = Field(primary_key=True)
+        name: str = "unknown"
+        count: int = 0
+        is_active: bool = True
+        created_at: datetime = datetime(2024, 1, 1)
 
     return DefaultsSchema
 

@@ -14,20 +14,28 @@ import polars as pl
 from sqlalchemy import create_engine, insert
 from sqlalchemy.orm import Session
 
-from flycatcher import Float, Integer, Schema, String
+from flycatcher import Field, Schema
 
 
 class SeasonStatsSchema(Schema):
     """Schema for season-level player statistics."""
 
-    player_id = Integer(primary_key=True, description="Unique player identifier")
-    season = String(min_length=4, max_length=7, description="Season (e.g., '2023-24')")
-    team = String(min_length=2, max_length=50, description="Team abbreviation")
-    games_played = Integer(ge=0, le=82, description="Games played (max 82 for NBA)")
-    points_per_game = Float(ge=0.0, le=50.0, description="Average points per game")
-    rebounds_per_game = Float(ge=0.0, le=25.0, description="Average rebounds per game")
-    assists_per_game = Float(ge=0.0, le=15.0, description="Average assists per game")
-    field_goal_percentage = Float(
+    player_id: int = Field(primary_key=True, description="Unique player identifier")
+    season: str = Field(
+        min_length=4, max_length=7, description="Season (e.g., '2023-24')"
+    )
+    team: str = Field(min_length=2, max_length=50, description="Team abbreviation")
+    games_played: int = Field(ge=0, le=82, description="Games played (max 82 for NBA)")
+    points_per_game: float = Field(
+        ge=0.0, le=50.0, description="Average points per game"
+    )
+    rebounds_per_game: float = Field(
+        ge=0.0, le=25.0, description="Average rebounds per game"
+    )
+    assists_per_game: float = Field(
+        ge=0.0, le=15.0, description="Average assists per game"
+    )
+    field_goal_percentage: float = Field(
         ge=0.0, le=1.0, description="Field goal percentage (0-1)"
     )
 

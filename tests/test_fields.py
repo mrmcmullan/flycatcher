@@ -24,8 +24,16 @@ from sqlalchemy import (
     String as SAString,
 )
 
-from flycatcher import Boolean, Date, Datetime, Float, Integer, String
-from flycatcher.fields import _MISSING
+from flycatcher import Field, Schema
+from flycatcher.fields import (
+    _MISSING,
+    Boolean,
+    Date,
+    Datetime,
+    Float,
+    Integer,
+    String,
+)
 
 
 class TestFieldTypes:
@@ -300,3 +308,68 @@ class TestFieldProperties:
         # name not set by metaclass yet
         with pytest.raises(RuntimeError, match="require field name"):
             field.get_polars_constraints()
+
+
+class TestPydanticStyleFields:
+    """Test Pydantic-style field definitions in schemas."""
+
+    def test_pydantic_style_simple_fields(self):
+        """Simple Pydantic-style fields work correctly."""
+
+        class UserSchema(Schema):
+            id: int
+            name: str
+            age: int | None = None
+
+        fields = UserSchema.fields()
+        assert len(fields) == 3
+        assert fields["id"].get_python_type() is int
+        assert fields["name"].get_python_type() is str
+        assert fields["age"].get_python_type() is int
+        assert fields["age"].nullable is True
+
+    def test_pydantic_style_with_field_function(self):
+        """Pydantic-style with Field() function works correctly."""
+
+        class UserSchema(Schema):
+            id: int = Field(primary_key=True, ge=1)
+            name: str = Field(min_length=1, max_length=100)
+            age: int = Field(ge=0, le=120)
+            email: str = Field(pattern=r"^[^@]+@[^@]+\.[^@]+$")
+
+        fields = UserSchema.fields()
+        assert fields["id"].primary_key is True
+        assert fields["id"].ge == 1
+        assert fields["name"].min_length == 1
+        assert fields["name"].max_length == 100
+        assert fields["age"].ge == 0
+        assert fields["age"].le == 120
+        assert fields["email"].pattern == r"^[^@]+@[^@]+\.[^@]+$"
+
+    def test_pydantic_style_with_defaults(self):
+        """Pydantic-style fields with defaults work correctly."""
+
+        class UserSchema(Schema):
+            id: int = Field(primary_key=True)
+            name: str = "unknown"
+            count: int = 0
+            is_active: bool = True
+
+        fields = UserSchema.fields()
+        assert fields["name"].default == "unknown"
+        assert fields["count"].default == 0
+        assert fields["is_active"].default is True
+
+    def test_pydantic_style_nullable_fields(self):
+        """Pydantic-style nullable fields work correctly."""
+
+        class UserSchema(Schema):
+            id: int
+            bio: str | None = None
+            age: int | None = Field(default=25)
+
+        fields = UserSchema.fields()
+        assert fields["bio"].nullable is True
+        assert fields["bio"].default is None
+        assert fields["age"].nullable is True
+        assert fields["age"].default == 25

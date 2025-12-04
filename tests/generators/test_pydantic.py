@@ -1,12 +1,12 @@
 """Tests for Pydantic model generation."""
 
 import sys
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from flycatcher import Boolean, Date, Datetime, Float, Integer, Schema, String
+from flycatcher import Field, Schema
 
 # Skip Pydantic tests on Python 3.14+ due to compatibility issues with Pydantic v2
 PYTHON_314_PLUS = sys.version_info >= (3, 14)
@@ -84,9 +84,9 @@ class TestPydanticModelGeneration:
         """Nullable fields accept None."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String()
-            age = Integer(nullable=True)
+            id: int = Field(primary_key=True)
+            name: str
+            age: int | None = None
 
         UserModel = UserSchema.to_pydantic()
 
@@ -124,12 +124,12 @@ class TestPydanticModelGeneration:
         """All field types generate correct Pydantic models."""
 
         class AllTypesSchema(Schema):
-            int_field = Integer()
-            str_field = String()
-            float_field = Float()
-            bool_field = Boolean()
-            datetime_field = Datetime()
-            date_field = Date()
+            int_field: int
+            str_field: str
+            float_field: float
+            bool_field: bool
+            datetime_field: datetime
+            date_field: date
 
         Model = AllTypesSchema.to_pydantic()
 
@@ -158,13 +158,15 @@ class TestPydanticModelValidators:
     )
     def test_model_validator_integration(self):
         """Model validators are integrated into Pydantic models."""
-        from flycatcher import Date, Schema, model_validator
+        from datetime import date
+
+        from flycatcher import Schema, model_validator
         from flycatcher.validators import FieldRef
 
         # Create a schema with DSL validator
         class DateRangeSchema(Schema):
-            start = Date()
-            end = Date()
+            start: date
+            end: date
 
             @model_validator
             def check_range():
@@ -173,8 +175,6 @@ class TestPydanticModelValidators:
                 return end_ref > start_ref
 
         Model = DateRangeSchema.to_pydantic()
-
-        from datetime import date
 
         # Valid: end > start
         valid = Model(start=date(2024, 1, 1), end=date(2024, 1, 2))

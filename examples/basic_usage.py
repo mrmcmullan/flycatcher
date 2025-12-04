@@ -12,7 +12,7 @@ from datetime import datetime
 
 import polars as pl
 
-from flycatcher import Boolean, Datetime, Float, Integer, Schema, String
+from flycatcher import Field, Schema
 
 
 # Define a schema for player statistics
@@ -20,27 +20,27 @@ class PlayerSchema(Schema):
     """Schema for tracking player statistics in a sports league."""
 
     # Primary key field
-    player_id = Integer(primary_key=True, description="Unique player identifier")
+    player_id: int = Field(primary_key=True, description="Unique player identifier")
 
     # String fields with constraints
-    name = String(min_length=1, max_length=100, description="Player full name")
-    team = String(min_length=2, max_length=50, description="Team abbreviation")
-    position = String(
+    name: str = Field(min_length=1, max_length=100, description="Player full name")
+    team: str = Field(min_length=2, max_length=50, description="Team abbreviation")
+    position: str = Field(
         min_length=1,
         max_length=20,
         description="Player position (e.g., 'PG', 'C', 'F')",
     )
 
     # Numeric fields with constraints
-    age = Integer(ge=18, le=50, description="Player age in years")
-    points_per_game = Float(ge=0.0, description="Average points scored per game")
-    games_played = Integer(ge=0, description="Total games played this season")
+    age: int = Field(ge=18, le=50, description="Player age in years")
+    points_per_game: float = Field(ge=0.0, description="Average points scored per game")
+    games_played: int = Field(ge=0, description="Total games played this season")
 
     # Boolean field with default
-    is_active = Boolean(default=True, description="Whether player is currently active")
+    is_active: bool = True  # description="Whether player is currently active"
 
     # Datetime field
-    created_at = Datetime(description="Record creation timestamp")
+    created_at: datetime  # description="Record creation timestamp"
 
 
 def main() -> None:

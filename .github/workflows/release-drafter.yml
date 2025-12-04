@@ -12,7 +12,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write  # Required to add labels via autolabeler
+  pull-requests: write # Required to add labels via autolabeler
 
 jobs:
   update_release_draft:
@@ -29,7 +29,6 @@ jobs:
         uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
-          disable-autolabeler: false  # Autolabeler labels PRs on PR events, draft releases only on push to main
+          disable-autolabeler: false # Autolabeler labels PRs on PR events, draft releases only on push to main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

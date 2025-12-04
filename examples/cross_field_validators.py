@@ -15,19 +15,21 @@ from datetime import date
 
 import polars as pl
 
-from flycatcher import Date, Float, Integer, Schema, String, col, model_validator
+from flycatcher import Field, Schema, col, model_validator
 
 
 class PlayerContractSchema(Schema):
     """Schema for player contracts with cross-field validation."""
 
-    contract_id = Integer(primary_key=True, description="Unique contract identifier")
-    player_id = Integer(description="Player identifier")
-    team = String(min_length=2, max_length=50, description="Team abbreviation")
-    start_date = Date(description="Contract start date")
-    end_date = Date(description="Contract end date")
-    base_salary = Float(gt=0, description="Base annual salary")
-    bonus = Float(ge=0, nullable=True, description="Performance bonus (optional)")
+    contract_id: int = Field(primary_key=True, description="Unique contract identifier")
+    player_id: int  # description="Player identifier"
+    team: str = Field(min_length=2, max_length=50, description="Team abbreviation")
+    start_date: date  # description="Contract start date"
+    end_date: date  # description="Contract end date"
+    base_salary: float = Field(gt=0, description="Base annual salary")
+    bonus: float | None = Field(
+        default=None, ge=0, description="Performance bonus (optional)"
+    )
 
     @model_validator
     def check_contract_dates():
@@ -68,14 +70,12 @@ class PlayerContractSchema(Schema):
 class GameResultSchema(Schema):
     """Schema for game results with score validation."""
 
-    game_id = Integer(primary_key=True, description="Unique game identifier")
-    home_team = String(min_length=2, max_length=50, description="Home team")
-    away_team = String(min_length=2, max_length=50, description="Away team")
-    home_score = Integer(ge=0, description="Home team score")
-    away_score = Integer(ge=0, description="Away team score")
-    overtime = String(
-        nullable=True, description="Overtime indicator (e.g., 'OT', '2OT')"
-    )
+    game_id: int = Field(primary_key=True, description="Unique game identifier")
+    home_team: str = Field(min_length=2, max_length=50, description="Home team")
+    away_team: str = Field(min_length=2, max_length=50, description="Away team")
+    home_score: int = Field(ge=0, description="Home team score")
+    away_score: int = Field(ge=0, description="Away team score")
+    overtime: str | None = None  # description="Overtime indicator (e.g., 'OT', '2OT')"
 
     @model_validator
     def check_teams_different():

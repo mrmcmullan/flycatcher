@@ -2,19 +2,19 @@
 
 import polars as pl
 
-from flycatcher import Integer, Schema, String, model_validator
+from flycatcher import Field, Schema, model_validator
 
 
 class TestSchemaMetaclass:
     """Test Schema metaclass field collection."""
 
     def test_fields_collected_by_metaclass(self):
-        """Metaclass collects all Field instances."""
+        """Metaclass collects all fields from type annotations."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String()
-            age = Integer(nullable=True)
+            id: int = Field(primary_key=True)
+            name: str
+            age: int | None = None
 
         fields = UserSchema.fields()
         assert len(fields) == 3
@@ -26,8 +26,8 @@ class TestSchemaMetaclass:
         """Metaclass assigns field names correctly."""
 
         class UserSchema(Schema):
-            id = Integer()
-            username = String()
+            id: int
+            username: str
 
         fields = UserSchema.fields()
         assert fields["id"].name == "id"
@@ -37,8 +37,8 @@ class TestSchemaMetaclass:
         """Non-Field attributes are not collected."""
 
         class UserSchema(Schema):
-            id = Integer()
-            _private = "not a field"
+            id: int
+            _private: str = "not a field"
 
             def some_method(self):
                 return None
@@ -53,10 +53,10 @@ class TestSchemaMetaclass:
         """Fields from parent classes are collected."""
 
         class BaseSchema(Schema):
-            id = Integer(primary_key=True)
+            id: int = Field(primary_key=True)
 
         class UserSchema(BaseSchema):
-            name = String()
+            name: str
 
         fields = UserSchema.fields()
         # TODO: Currently only direct fields are collected. Need to implement
@@ -73,7 +73,7 @@ class TestModelValidators:
         """Model validators are collected by metaclass."""
 
         class UserSchema(Schema):
-            age = Integer()
+            age: int
 
             @model_validator
             def check_age():
@@ -87,8 +87,8 @@ class TestModelValidators:
         """Multiple model validators are all collected."""
 
         class UserSchema(Schema):
-            age = Integer()
-            name = String()
+            age: int
+            name: str
 
             @model_validator
             def check_age():
@@ -105,7 +105,7 @@ class TestModelValidators:
         """Regular methods are not collected as validators."""
 
         class UserSchema(Schema):
-            age = Integer()
+            age: int
 
             def regular_method(self):
                 return "not a validator"
@@ -117,7 +117,7 @@ class TestModelValidators:
         """Model validators can omit the cls parameter for ergonomics."""
 
         class UserSchema(Schema):
-            age = Integer()
+            age: int
 
             @model_validator
             def check_age():
@@ -143,7 +143,7 @@ class TestSchemaMethods:
         """fields() returns a copy, not the original dict."""
 
         class UserSchema(Schema):
-            id = Integer()
+            id: int
 
         fields1 = UserSchema.fields()
         fields2 = UserSchema.fields()
@@ -156,6 +156,8 @@ class TestSchemaMethods:
         """model_validators() returns a copy."""
 
         class UserSchema(Schema):
+            id: int
+
             @model_validator
             def check():
                 return (pl.col("id") > 0, "must be positive")

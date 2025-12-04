@@ -791,10 +791,10 @@ def col(name: str) -> FieldRef:
 
     Examples
     --------
-        >>> from flycatcher import Schema, Integer, Float, col, model_validator
+        >>> from flycatcher import Schema, col, model_validator
         >>> class ProductSchema(Schema):
-        ...     price = Float()
-        ...     discount = Float(nullable=True)
+        ...     price: float
+        ...     discount: float | None = None
         ...
         ...     @model_validator
         ...     def check_discount():
@@ -881,6 +881,18 @@ class ValidatorResult:
             if isinstance(polars_val, tuple):
                 return polars_val
             return (polars_val, "Validation failed")
+        elif isinstance(self.result, tuple) and len(self.result) == 2:
+            # Tuple format: (expression, error_message)
+            expr, msg = self.result
+            if hasattr(expr, "to_polars"):
+                return (expr.to_polars(), msg)
+            elif isinstance(expr, pl.Expr):
+                return (expr, msg)
+            else:
+                raise ValueError(
+                    f"Invalid expression in tuple: {type(expr).__name__}. "
+                    "Expected DSL expression or pl.Expr."
+                )
         elif hasattr(self.result, "to_polars"):
             # DSL format: compile to Polars
             expr = self.result.to_polars()
@@ -888,7 +900,8 @@ class ValidatorResult:
         else:
             raise ValueError(
                 f"Invalid validator result type: {type(self.result).__name__}. "
-                "Expected dict, or object with 'to_polars' method."
+                "Expected dict, tuple of (expr, msg), or object with "
+                "'to_polars' method."
             )
 
     def get_pydantic_validator(self) -> Any | None:
@@ -924,6 +937,25 @@ class ValidatorResult:
                 )
                 return None  # Polars-only
             return self.result["pydantic"]
+        elif isinstance(self.result, tuple) and len(self.result) == 2:
+            # Tuple format: (expression, error_message)
+            expr, msg = self.result
+            if hasattr(expr, "to_python"):
+                # DSL format with custom error message
+                def validator(values: Any) -> Any:
+                    try:
+                        result = expr.to_python(values)
+                        if not result:
+                            raise ValueError(msg)
+                        return values
+                    except ValueError:
+                        raise
+                    except Exception as e:
+                        raise ValueError(f"{msg}: {e}") from e
+
+                return validator
+            else:
+                return None  # Polars-only expression
         elif hasattr(self.result, "to_python"):
             # DSL format: compile to Python
             def validator(values: Any) -> Any:

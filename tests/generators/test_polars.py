@@ -3,13 +3,7 @@
 import polars as pl
 import pytest
 
-from flycatcher import (
-    Boolean,
-    Integer,
-    Schema,
-    String,
-    model_validator,
-)
+from flycatcher import Field, Schema, model_validator
 
 
 class TestPolarsValidatorCreation:
@@ -77,9 +71,9 @@ class TestPolarsValidation:
         """Nullable fields allow nulls."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String()
-            age = Integer(nullable=True)
+            id: int = Field(primary_key=True)
+            name: str
+            age: int | None = None
 
         validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"], "age": [25, None]})
@@ -92,8 +86,8 @@ class TestPolarsValidation:
         """Non-nullable fields reject nulls in strict mode."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String()  # Not nullable
+            id: int = Field(primary_key=True)
+            name: str  # Not nullable
 
         validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"id": [1, 2], "name": ["Alice", None]})
@@ -139,7 +133,7 @@ class TestPolarsConstraints:
         """Integer range constraints are enforced."""
 
         class UserSchema(Schema):
-            age = Integer(ge=18, le=65)
+            age: int = Field(ge=18, le=65)
 
         validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"age": [25, 17, 70, 30]})
@@ -152,7 +146,7 @@ class TestPolarsConstraints:
         """String length constraints are enforced."""
 
         class UserSchema(Schema):
-            name = String(min_length=3, max_length=10)
+            name: str = Field(min_length=3, max_length=10)
 
         validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"name": ["Alice", "Al", "VeryLongName"]})
@@ -164,7 +158,7 @@ class TestPolarsConstraints:
         """String pattern constraints are enforced."""
 
         class UserSchema(Schema):
-            email = String(pattern=r"^[^@]+@[^@]+\.[^@]+$")
+            email: str = Field(pattern=r"^[^@]+@[^@]+\.[^@]+$")
 
         validator = UserSchema.to_polars_validator()
         df = pl.DataFrame({"email": ["alice@example.com", "invalid", "bob@test"]})
@@ -203,8 +197,8 @@ class TestPolarsModelValidators:
         """DSL validators compile to Polars expressions."""
 
         class UserSchema(Schema):
-            age = Integer()
-            is_adult = Boolean()
+            age: int
+            is_adult: bool
 
             @model_validator
             def check_adult():
