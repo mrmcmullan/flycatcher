@@ -43,17 +43,17 @@ Flycatcher's API is organized into four main areas:
 
 The typical workflow is:
 
-1. **Define a schema** using `Schema` and field types
+1. **Define a schema** using `Schema`, type hints, and `Field()`
 2. **Add validators** using `@model_validator` and the `col()` DSL
 3. **Generate outputs** using `.to_pydantic()`, `.to_polars_validator()`, or `.to_sqlalchemy()`
 
 ```python
-from flycatcher import Schema, Integer, String, col, model_validator
+from flycatcher import Schema, Field, col, model_validator
 
 class UserSchema(Schema):
-    id = Integer(primary_key=True)
-    name = String(min_length=1, max_length=100)
-    age = Integer(ge=0, le=120)
+    id: int = Field(primary_key=True)
+    name: str = Field(min_length=1, max_length=100)
+    age: int = Field(ge=0, le=120)
 
     @model_validator
     def check_age_name():

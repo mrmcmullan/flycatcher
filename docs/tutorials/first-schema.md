@@ -45,12 +45,12 @@ uv add flycatcher
 Let's start with a minimal schema. Create a new Python file called `blog.py`:
 
 ```python title="blog.py"
-from flycatcher import Schema, Integer, String
+from flycatcher import Schema, Field
 
 class PostSchema(Schema):
-    id = Integer(primary_key=True)
-    title = String()
-    content = String()
+    id: int = Field(primary_key=True)
+    title: str
+    content: str
 ```
 
 That's it! You've defined your first schema with three fields.
@@ -58,8 +58,8 @@ That's it! You've defined your first schema with three fields.
 ### Understanding the Code
 
 - **`Schema`** - Base class for all schemas. Uses metaclass magic to collect fields.
-- **`Integer(primary_key=True)`** - Creates an integer field marked as the primary key (useful for databases).
-- **`String()`** - Creates a string field with no constraints.
+- **`id: int = Field(primary_key=True)`** - Integer column marked as the primary key (useful for databases).
+- **`title: str` / `content: str`** - Simple string fields with no constraints.
 
 ---
 
@@ -68,16 +68,17 @@ That's it! You've defined your first schema with three fields.
 Let's make our schema more robust by adding validation constraints:
 
 ```python
-from flycatcher import Schema, Integer, String, Float, Datetime
+from datetime import datetime
+from flycatcher import Schema, Field
 
 class PostSchema(Schema):
-    id = Integer(primary_key=True)
-    title = String(min_length=5, max_length=200)
-    content = String(min_length=100)
-    author_email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
-    view_count = Integer(ge=0, default=0)
-    published_at = Datetime()
-    tags = String(nullable=True)
+    id: int = Field(primary_key=True)
+    title: str = Field(min_length=5, max_length=200)
+    content: str = Field(min_length=100)
+    author_email: str = Field(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
+    view_count: int = Field(ge=0, default=0)
+    published_at: datetime
+    tags: str | None = Field(default=None)
 ```
 
 ### What Changed?
@@ -276,17 +277,17 @@ Here's a complete example showing all three outputs in action:
 from datetime import datetime
 import polars as pl
 from sqlalchemy import create_engine, MetaData
-from flycatcher import Schema, Integer, String, Float, Datetime
+from flycatcher import Schema, Field
 
 # 1. Define schema once
 class PostSchema(Schema):
-    id = Integer(primary_key=True)
-    title = String(min_length=5, max_length=200)
-    content = String(min_length=100)
-    author_email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
-    view_count = Integer(ge=0, default=0)
-    published_at = Datetime()
-    tags = String(nullable=True)
+    id: int = Field(primary_key=True)
+    title: str = Field(min_length=5, max_length=200)
+    content: str = Field(min_length=100)
+    author_email: str = Field(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
+    view_count: int = Field(ge=0, default=0)
+    published_at: datetime
+    tags: str | None = Field(default=None)
 
 # 2. Validate single record with Pydantic
 Post = PostSchema.to_pydantic()
@@ -333,7 +334,7 @@ Congratulations! 🎉 You've built your first Flycatcher schema and learned how 
 
 ### Try These Exercises
 
-1. **Add a rating field** (Integer, 1-5 stars)
+1. **Add a rating field** (`rating: int = Field(ge=1, le=5)`)
 2. **Make title unique** (`unique=True`)
 3. **Add a slug field** (URL-safe version of title, with pattern validation)
 4. **Create a CommentSchema** that references PostSchema
@@ -353,41 +354,41 @@ Here's the complete working example from this tutorial:
 from datetime import datetime
 import polars as pl
 from sqlalchemy import create_engine, MetaData
-from flycatcher import Schema, Integer, String, Datetime
+from flycatcher import Schema, Field
 
 
 class PostSchema(Schema):
     """Schema for blog posts."""
 
-    id = Integer(
+    id: int = Field(
         primary_key=True,
-        description="Unique identifier for the post"
+        description="Unique identifier for the post",
     )
-    title = String(
+    title: str = Field(
         min_length=5,
         max_length=200,
-        description="Post title"
+        description="Post title",
     )
-    content = String(
+    content: str = Field(
         min_length=100,
-        description="Post content body"
+        description="Post content body",
     )
-    author_email = String(
+    author_email: str = Field(
         pattern=r'^[^@]+@[^@]+\.[^@]+$',
         index=True,
-        description="Author's email address"
+        description="Author's email address",
     )
-    view_count = Integer(
+    view_count: int = Field(
         ge=0,
         default=0,
-        description="Number of views"
+        description="Number of views",
     )
-    published_at = Datetime(
-        description="Publication timestamp"
+    published_at: datetime = Field(
+        description="Publication timestamp",
     )
-    tags = String(
-        nullable=True,
-        description="Comma-separated tags"
+    tags: str | None = Field(
+        default=None,
+        description="Comma-separated tags",
     )
 
 
