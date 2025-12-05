@@ -13,12 +13,12 @@ Generate SQLAlchemy Table objects from Flycatcher schemas.
 The `create_sqlalchemy_table` function is typically called via the `Schema.to_sqlalchemy()` method:
 
 ```python
-from flycatcher import Schema, Integer, String
+from flycatcher import Schema, Field
 from sqlalchemy import create_engine, MetaData
 
 class UserSchema(Schema):
-    id = Integer(primary_key=True)
-    name = String(min_length=1, max_length=100)
+    id: int = Field(primary_key=True)
+    name: str = Field(min_length=1, max_length=100)
 
 # Generate SQLAlchemy table
 metadata = MetaData()

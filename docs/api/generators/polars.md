@@ -19,12 +19,12 @@ Generate Polars DataFrame validators from Flycatcher schemas.
 The `create_polars_validator` function is typically called via the `Schema.to_polars_validator()` method:
 
 ```python
-from flycatcher import Schema, Integer, String
+from flycatcher import Schema, Field
 import polars as pl
 
 class UserSchema(Schema):
-    id = Integer(primary_key=True)
-    name = String(min_length=1, max_length=100)
+    id: int = Field(primary_key=True)
+    name: str = Field(min_length=1, max_length=100)
 
 # Generate Polars validator
 validator = UserSchema.to_polars_validator()

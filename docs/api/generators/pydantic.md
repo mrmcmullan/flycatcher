@@ -13,11 +13,11 @@ Generate Pydantic models from Flycatcher schemas.
 The `create_pydantic_model` function is typically called via the `Schema.to_pydantic()` method:
 
 ```python
-from flycatcher import Schema, Integer, String
+from flycatcher import Schema, Field
 
 class UserSchema(Schema):
-    id = Integer(primary_key=True)
-    name = String(min_length=1, max_length=100)
+    id: int = Field(primary_key=True)
+    name: str = Field(min_length=1, max_length=100)
 
 # Generate Pydantic model
 UserModel = UserSchema.to_pydantic()

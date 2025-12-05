@@ -46,13 +46,13 @@ Modern Python data projects need **row-level validation** (Pydantic), **efficien
 **Flycatcher solves this:** One schema definition → three optimized outputs.
 
 ```python
-from flycatcher import Schema, Integer, String, Float, col, model_validator
+from flycatcher import Schema, Field, col, model_validator
 
 class ProductSchema(Schema):
-    id = Integer(primary_key=True)
-    name = String(min_length=3, max_length=100)
-    price = Float(gt=0)
-    discount_price = Float(gt=0, nullable=True)
+    id: int = Field(primary_key=True)
+    name: str = Field(min_length=3, max_length=100)
+    price: float = Field(gt=0)
+    discount_price: float | None = Field(default=None, gt=0, nullable=True)
 
     @model_validator
     def check_discount():
@@ -85,15 +85,16 @@ uv add flycatcher
 ### Define Your Schema
 
 ```python
-from flycatcher import Schema, Integer, String, Boolean, Datetime
+from datetime import datetime
+from flycatcher import Schema, Field
 
 class UserSchema(Schema):
-    id = Integer(primary_key=True)
-    username = String(min_length=3, max_length=50, unique=True)
-    email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$', unique=True, index=True)
-    age = Integer(ge=13, le=120)
-    is_active = Boolean(default=True)
-    created_at = Datetime()
+    id: int = Field(primary_key=True)
+    username: str = Field(min_length=3, max_length=50, unique=True)
+    email: str = Field(pattern=r'^[^@]+@[^@]+\.[^@]+$', unique=True, index=True)
+    age: int = Field(ge=13, le=120)
+    is_active: bool = Field(default=True)
+    created_at: datetime
 ```
 
 ### Use Pydantic for Row-Level Validation
@@ -162,14 +163,16 @@ with engine.connect() as conn:
 
 ### Rich Field Types & Constraints
 
-| Field Type | Constraints | Example |
-|------------|-------------|---------|
-| `Integer()` | `ge`, `gt`, `le`, `lt`, `multiple_of` | `age = Integer(ge=0, le=120)` |
-| `Float()` | `ge`, `gt`, `le`, `lt` | `price = Float(gt=0)` |
-| `String()` | `min_length`, `max_length`, `pattern` | `email = String(pattern=r'^[^@]+@...')` |
-| `Boolean()` | - | `is_active = Boolean(default=True)` |
-| `Datetime()` | `ge`, `gt`, `le`, `lt` | `created_at = Datetime(ge=datetime(2020, 1, 1))` |
-| `Date()` | - | `birth_date = Date()` |
+Use standard Python types with `Field(...)` constraints:
+
+| Python Type | Constraints | Example |
+|-------------|-------------|---------|
+| `int` | `ge`, `gt`, `le`, `lt`, `multiple_of` | `age: int = Field(ge=0, le=120)` |
+| `float` | `ge`, `gt`, `le`, `lt` | `price: float = Field(gt=0)` |
+| `str` | `min_length`, `max_length`, `pattern` | `email: str = Field(pattern=r'^[^@]+@...')` |
+| `bool` | - | `is_active: bool = Field(default=True)` |
+| `datetime` | `ge`, `gt`, `le`, `lt` | `created_at: datetime = Field(ge=datetime(2020, 1, 1))` |
+| `date` | - | `birth_date: date` |
 
 **All fields support (validation):** `nullable`, `default`, `description`
 
@@ -180,15 +183,15 @@ with engine.connect() as conn:
 Use the `col()` DSL for powerful field-level and cross-field validation that works across both Pydantic and Polars:
 
 ```python
-from flycatcher import Schema, Integer, String, Datetime, col, model_validator
 from datetime import datetime
+from flycatcher import Schema, Field, col, model_validator
 
 class BookingSchema(Schema):
-    email = String()
-    phone = String()
-    check_in = Datetime(ge=datetime(2024, 1, 1))
-    check_out = Datetime(ge=datetime(2024, 1, 1))
-    nights = Integer(ge=1)
+    email: str
+    phone: str
+    check_in: datetime = Field(ge=datetime(2024, 1, 1))
+    check_out: datetime = Field(ge=datetime(2024, 1, 1))
+    nights: int = Field(ge=1)
 
     @model_validator
     def check_dates():
@@ -240,17 +243,18 @@ validated_df = UserValidator.validate(df, strict=True, show_violations=True)
 
 ```python
 import polars as pl
-from flycatcher import Schema, Integer, Float, String, Datetime, col, model_validator
+from datetime import datetime
+from flycatcher import Schema, Field, col, model_validator
 from sqlalchemy import create_engine, MetaData
 
 # 1. Define schema once
 class OrderSchema(Schema):
-    order_id = Integer(primary_key=True)
-    customer_email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
-    amount = Float(gt=0)
-    tax = Float(ge=0)
-    total = Float(gt=0)
-    created_at = Datetime()
+    order_id: int = Field(primary_key=True)
+    customer_email: str = Field(pattern=r'^[^@]+@[^@]+\.[^@]+$', index=True)
+    amount: float = Field(gt=0)
+    tax: float = Field(ge=0)
+    total: float = Field(gt=0)
+    created_at: datetime
 
     @model_validator
     def check_total():

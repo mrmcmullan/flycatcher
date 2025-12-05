@@ -7,12 +7,13 @@ This guide shows you how to implement **custom validation logic that goes beyond
 ## 📝 Quick Reference
 
 ```python
-from flycatcher import Schema, Integer, String, col, model_validator
+from datetime import datetime
+from flycatcher import Schema, Field, col, model_validator
 
 class BookingSchema(Schema):
-    check_in = Datetime()
-    check_out = Datetime()
-    guests = Integer(ge=1)
+    check_in: datetime
+    check_out: datetime
+    guests: int = Field(ge=1)
 
     @model_validator
     def check_dates():
@@ -117,11 +118,11 @@ Use `@model_validator` to implement validation rules that depend on multiple fie
 **Example: Price Comparison**
 
 ```python
-from flycatcher import Schema, Float, col, model_validator
+from flycatcher import Schema, Field, col, model_validator
 
 class ProductSchema(Schema):
-    regular_price = Float(gt=0)
-    sale_price = Float(gt=0, nullable=True)
+    regular_price: float = Field(gt=0)
+    sale_price: float | None = Field(default=None, gt=0, nullable=True)
 
     @model_validator
     def check_sale_price():
@@ -143,12 +144,13 @@ class ProductSchema(Schema):
 **Example: Event Booking**
 
 ```python
-from flycatcher import Schema, Datetime, Integer, col, model_validator
+from datetime import datetime
+from flycatcher import Schema, Field, col, model_validator
 
 class EventSchema(Schema):
-    start_time = Datetime()
-    end_time = Datetime()
-    duration_hours = Integer(ge=1, le=12)
+    start_time: datetime
+    end_time: datetime
+    duration_hours: int = Field(ge=1, le=12)
 
     @model_validator
     def check_end_after_start():
@@ -164,13 +166,13 @@ class EventSchema(Schema):
 **Example: Discount Rules**
 
 ```python
-from flycatcher import Schema, String, Integer, Float, col, model_validator
+from flycatcher import Schema, Field, col, model_validator
 
 class OrderSchema(Schema):
-    item_type = String()
-    quantity = Integer(ge=1)
-    unit_price = Float(gt=0)
-    discount_percent = Float(ge=0, le=100, default=0)
+    item_type: str
+    quantity: int = Field(ge=1)
+    unit_price: float = Field(gt=0)
+    discount_percent: float = Field(ge=0, le=100, default=0)
 
     @model_validator
     def bulk_discount_rule():
@@ -193,13 +195,14 @@ class OrderSchema(Schema):
 You can add multiple validators to a single schema:
 
 ```python
-from flycatcher import Schema, Datetime, Integer, String, col, model_validator
+from datetime import datetime
+from flycatcher import Schema, Field, col, model_validator
 
 class BookingSchema(Schema):
-    check_in = Datetime()
-    check_out = Datetime()
-    guests = Integer(ge=1)
-    room_type = String()
+    check_in: datetime
+    check_out: datetime
+    guests: int = Field(ge=1)
+    room_type: str
 
     @model_validator
     def check_dates():
@@ -238,11 +241,11 @@ class BookingSchema(Schema):
 When validating optional fields, use the `|` (OR) operator to skip validation when the field is `None`:
 
 ```python
-from flycatcher import Schema, Float, col, model_validator
+from flycatcher import Schema, Field, col, model_validator
 
 class ProductSchema(Schema):
-    regular_price = Float(gt=0)
-    sale_price = Float(gt=0, nullable=True)  # Optional field
+    regular_price: float = Field(gt=0)
+    sale_price: float | None = Field(default=None, gt=0, nullable=True)  # Optional field
 
     @model_validator
     def check_sale_price():
