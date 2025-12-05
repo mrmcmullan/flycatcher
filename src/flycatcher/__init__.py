@@ -6,28 +6,25 @@ Define your schema once. Validate at scale. Stay columnar.
 
 from .base import Schema, model_validator
 from .fields import (
-    Boolean,
     Date,
-    Datetime,
     Field,
-    Float,
-    Integer,
-    String,
+    FieldBase,
+    FieldInfo,
 )
 from .validators import FieldRef, col
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
+    # Core
     "Schema",
+    "Field",
+    "Date",
     "model_validator",
+    # DSL
     "col",
     "FieldRef",
-    "Field",
-    "Integer",
-    "String",
-    "Float",
-    "Boolean",
-    "Datetime",
-    "Date",
+    # Internal (for advanced use)
+    "FieldBase",
+    "FieldInfo",
 ]

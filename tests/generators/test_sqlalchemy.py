@@ -1,5 +1,7 @@
 """Tests for SQLAlchemy table generation."""
 
+from datetime import date, datetime
+
 from sqlalchemy import (
     Boolean as SABoolean,
 )
@@ -20,7 +22,7 @@ from sqlalchemy import (
     String as SAString,
 )
 
-from flycatcher import Boolean, Date, Datetime, Float, Integer, Schema, String
+from flycatcher import Field, Schema
 
 
 class TestSQLAlchemyTableGeneration:
@@ -43,13 +45,13 @@ class TestSQLAlchemyTableGeneration:
         """Table name is generated from schema class name."""
 
         class UserSchema(Schema):
-            id = Integer()
+            id: int
 
         table = UserSchema.to_sqlalchemy()
         assert table.name == "users"
 
         class PersonSchema(Schema):
-            id = Integer()
+            id: int
 
         table = PersonSchema.to_sqlalchemy()
         assert table.name == "persons"
@@ -58,12 +60,12 @@ class TestSQLAlchemyTableGeneration:
         """All field types generate correct SQLAlchemy columns."""
 
         class AllTypesSchema(Schema):
-            int_field = Integer()
-            str_field = String()
-            float_field = Float()
-            bool_field = Boolean()
-            datetime_field = Datetime()
-            date_field = Date()
+            int_field: int
+            str_field: str
+            float_field: float
+            bool_field: bool
+            datetime_field: datetime
+            date_field: date
 
         table = AllTypesSchema.to_sqlalchemy()
 
@@ -83,8 +85,8 @@ class TestSQLAlchemyColumnProperties:
         """Primary key flag is set correctly."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String()
+            id: int = Field(primary_key=True)
+            name: str
 
         table = UserSchema.to_sqlalchemy()
         assert table.c.id.primary_key is True
@@ -94,9 +96,9 @@ class TestSQLAlchemyColumnProperties:
         """Nullable flag is set correctly."""
 
         class UserSchema(Schema):
-            id = Integer()
-            name = String(nullable=True)
-            age = Integer(nullable=False)
+            id: int
+            name: str | None = None
+            age: int
 
         table = UserSchema.to_sqlalchemy()
         assert table.c.id.nullable is False  # Default
@@ -107,9 +109,9 @@ class TestSQLAlchemyColumnProperties:
         """Unique flag is set correctly."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            email = String(unique=True)
-            name = String()
+            id: int = Field(primary_key=True)
+            email: str = Field(unique=True)
+            name: str
 
         table = UserSchema.to_sqlalchemy()
         assert table.c.email.unique is True
@@ -120,9 +122,9 @@ class TestSQLAlchemyColumnProperties:
         """Index flag is set correctly."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            email = String(index=True)
-            name = String()
+            id: int = Field(primary_key=True)
+            email: str = Field(index=True)
+            name: str
 
         table = UserSchema.to_sqlalchemy()
         assert table.c.email.index is True
@@ -133,10 +135,10 @@ class TestSQLAlchemyColumnProperties:
         """Default values are set correctly."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True)
-            name = String(default="unknown")
-            count = Integer(default=0)
-            is_active = Boolean(default=True)
+            id: int = Field(primary_key=True)
+            name: str = "unknown"
+            count: int = 0
+            is_active: bool = True
 
         table = UserSchema.to_sqlalchemy()
         assert table.c.name.default.arg == "unknown"
@@ -147,8 +149,8 @@ class TestSQLAlchemyColumnProperties:
         """Autoincrement is set correctly."""
 
         class UserSchema(Schema):
-            id = Integer(primary_key=True, autoincrement=True)
-            other_id = Integer(primary_key=True, autoincrement=False)
+            id: int = Field(primary_key=True, autoincrement=True)
+            other_id: int = Field(primary_key=True, autoincrement=False)
 
         table = UserSchema.to_sqlalchemy()
         assert table.c.id.autoincrement is True

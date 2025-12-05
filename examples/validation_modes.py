@@ -11,24 +11,24 @@ from datetime import date
 
 import polars as pl
 
-from flycatcher import Date, Integer, Schema, String
+from flycatcher import Field, Schema
 
 
 class GameStatsSchema(Schema):
     """Schema for tracking individual game statistics."""
 
-    game_id = Integer(primary_key=True, description="Unique game identifier")
-    date = Date(description="Date the game was played")
-    home_team = String(
+    game_id: int = Field(primary_key=True, description="Unique game identifier")
+    date: date  # description="Date the game was played"
+    home_team: str = Field(
         min_length=2, max_length=50, description="Home team abbreviation"
     )
-    away_team = String(
+    away_team: str = Field(
         min_length=2, max_length=50, description="Away team abbreviation"
     )
-    home_score = Integer(ge=0, description="Home team final score")
-    away_score = Integer(ge=0, description="Away team final score")
-    attendance = Integer(
-        ge=0, nullable=True, description="Game attendance (if available)"
+    home_score: int = Field(ge=0, description="Home team final score")
+    away_score: int = Field(ge=0, description="Away team final score")
+    attendance: int | None = Field(
+        default=None, ge=0, description="Game attendance (if available)"
     )
 
 

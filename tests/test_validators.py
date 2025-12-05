@@ -286,10 +286,10 @@ class TestValidatorExecution:
 
     def test_dsl_validator_in_polars_integration(self):
         """DSL validator works in actual Polars validation."""
-        from flycatcher import Integer, Schema, model_validator
+        from flycatcher import Schema, model_validator
 
         class UserSchema(Schema):
-            age = Integer()
+            age: int
 
             @model_validator
             def check_age():
@@ -307,10 +307,10 @@ class TestValidatorExecution:
     )
     def test_dsl_validator_in_pydantic_integration(self):
         """DSL validator works in actual Pydantic validation."""
-        from flycatcher import Integer, Schema, model_validator
+        from flycatcher import Schema, model_validator
 
         class UserSchema(Schema):
-            age = Integer()
+            age: int
 
             @model_validator
             def check_age():
@@ -590,10 +590,10 @@ class TestStringOperations:
 
     def test_string_operations_in_validator(self):
         """String operations work in model validators."""
-        from flycatcher import Schema, String, model_validator
+        from flycatcher import Schema, model_validator
 
         class UserSchema(Schema):
-            email = String()
+            email: str
 
             @model_validator
             def check_email():

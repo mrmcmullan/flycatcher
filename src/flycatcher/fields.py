@@ -9,13 +9,227 @@ import polars as pl
 # Sentinel value to distinguish "no default provided" from "default is None"
 _MISSING = object()
 
+# Type mapping from Python types to Field classes (populated at module end)
+_TYPE_MAP: dict[type, type["FieldBase"]] = {}
 
-class Field:
+
+class FieldInfo:
+    """
+    Stores field metadata and constraints from Field() function calls.
+
+    This class is used internally to capture constraints specified via the
+    Pydantic-style Field() function, which are then merged with the appropriate
+    Field subclass based on the type annotation.
+
+    Users should use the Field() function, not this class directly.
+    """
+
+    def __init__(
+        self,
+        *,
+        # Base field options
+        primary_key: bool = False,
+        nullable: bool = False,
+        default: Any = _MISSING,
+        description: str | None = None,
+        unique: bool = False,
+        index: bool = False,
+        autoincrement: bool | None = None,
+        # Numeric constraints (Integer, Float, Datetime)
+        gt: int | float | datetime | None = None,
+        ge: int | float | datetime | None = None,
+        lt: int | float | datetime | None = None,
+        le: int | float | datetime | None = None,
+        multiple_of: int | None = None,
+        # String constraints
+        min_length: int | None = None,
+        max_length: int | None = None,
+        pattern: str | None = None,
+    ):
+        # Base options
+        self.primary_key = primary_key
+        self.nullable = nullable
+        self.default = default
+        self.description = description
+        self.unique = unique
+        self.index = index
+        self.autoincrement = autoincrement
+
+        # Numeric constraints
+        self.gt = gt
+        self.ge = ge
+        self.lt = lt
+        self.le = le
+        self.multiple_of = multiple_of
+
+        # String constraints
+        self.min_length = min_length
+        self.max_length = max_length
+        self.pattern = pattern
+
+    def to_field_kwargs(self) -> dict[str, Any]:
+        """Convert to kwargs dict for Field subclass constructors."""
+        kwargs: dict[str, Any] = {}
+
+        # Base options (always applicable)
+        kwargs["primary_key"] = self.primary_key
+        kwargs["nullable"] = self.nullable
+        if self.default is not _MISSING:
+            kwargs["default"] = self.default
+        if self.description is not None:
+            kwargs["description"] = self.description
+        kwargs["unique"] = self.unique
+        kwargs["index"] = self.index
+        if self.autoincrement is not None:
+            kwargs["autoincrement"] = self.autoincrement
+
+        # Numeric constraints (only include if set)
+        if self.gt is not None:
+            kwargs["gt"] = self.gt
+        if self.ge is not None:
+            kwargs["ge"] = self.ge
+        if self.lt is not None:
+            kwargs["lt"] = self.lt
+        if self.le is not None:
+            kwargs["le"] = self.le
+        if self.multiple_of is not None:
+            kwargs["multiple_of"] = self.multiple_of
+
+        # String constraints (only include if set)
+        if self.min_length is not None:
+            kwargs["min_length"] = self.min_length
+        if self.max_length is not None:
+            kwargs["max_length"] = self.max_length
+        if self.pattern is not None:
+            kwargs["pattern"] = self.pattern
+
+        return kwargs
+
+
+def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
+    default: Any = _MISSING,
+    *,
+    # Base field options
+    primary_key: bool = False,
+    nullable: bool = False,
+    description: str | None = None,
+    unique: bool = False,
+    index: bool = False,
+    autoincrement: bool | None = None,
+    # Numeric constraints (Integer, Float, Datetime)
+    gt: int | float | datetime | None = None,
+    ge: int | float | datetime | None = None,
+    lt: int | float | datetime | None = None,
+    le: int | float | datetime | None = None,
+    multiple_of: int | None = None,
+    # String constraints
+    min_length: int | None = None,
+    max_length: int | None = None,
+    pattern: str | None = None,
+) -> Any:
+    """
+    Declare field metadata and constraints for Pydantic-style schema definitions.
+
+    Use this function with type annotations to define schema fields with
+    constraints, similar to Pydantic's Field() function.
+
+    Parameters
+    ----------
+    default : Any, optional
+        Default value for the field. Can be provided as first positional argument.
+    primary_key : bool, default False
+        Mark this field as the primary key (for database operations).
+    nullable : bool, default False
+        Allow None values for this field.
+    description : str, optional
+        Human-readable description of this field.
+    unique : bool, default False
+        Enforce uniqueness constraint (for database operations).
+    index : bool, default False
+        Create an index on this field (for database operations).
+    autoincrement : bool, optional
+        Enable auto-increment for integer fields.
+    gt : numeric, optional
+        Value must be greater than this (for int, float, datetime fields).
+    ge : numeric, optional
+        Value must be greater than or equal to this.
+    lt : numeric, optional
+        Value must be less than this.
+    le : numeric, optional
+        Value must be less than or equal to this.
+    multiple_of : int, optional
+        Value must be a multiple of this (for integer fields).
+    min_length : int, optional
+        Minimum string length (for string fields).
+    max_length : int, optional
+        Maximum string length (for string fields).
+    pattern : str, optional
+        Regex pattern the string must match (for string fields).
+
+    Returns
+    -------
+    FieldInfo
+        A FieldInfo instance that will be processed by the Schema metaclass.
+
+    Examples
+    --------
+    Basic usage with type annotations:
+
+        >>> from flycatcher import Schema, Field
+        >>> from datetime import datetime
+        >>> class UserSchema(Schema):
+        ...     # Simple fields - just annotations
+        ...     name: str
+        ...     created_at: datetime
+        ...
+        ...     # Fields with defaults
+        ...     is_active: bool = True
+        ...
+        ...     # Nullable fields
+        ...     bio: str | None = None
+        ...
+        ...     # Fields with constraints
+        ...     age: int = Field(ge=0, le=120)
+        ...     email: str = Field(pattern=r'^[^@]+@[^@]+\\.[^@]+$')
+        ...
+        ...     # Database-specific options
+        ...     id: int = Field(primary_key=True, autoincrement=True)
+
+    With default value as positional argument:
+
+        >>> class ConfigSchema(Schema):
+        ...     timeout: int = Field(default=30, ge=1, le=300)
+        ...     retries: int = Field(default=3, ge=0)
+    """
+    return FieldInfo(
+        primary_key=primary_key,
+        nullable=nullable,
+        default=default,
+        description=description,
+        unique=unique,
+        index=index,
+        autoincrement=autoincrement,
+        gt=gt,
+        ge=ge,
+        lt=lt,
+        le=le,
+        multiple_of=multiple_of,
+        min_length=min_length,
+        max_length=max_length,
+        pattern=pattern,
+    )
+
+
+class FieldBase:
     """
     Base field class for schema definitions.
 
     All field types inherit from this class. Fields define the structure,
     constraints, and metadata for schema attributes.
+
+    This class is used internally. For the public API, use type annotations
+    with the Field() function for Pydantic-style definitions, or use the
+    typed field classes (Integer, String, etc.) directly.
 
     Parameters
     ----------
@@ -38,11 +252,13 @@ class Field:
 
     Examples
     --------
-        >>> from flycatcher import Schema, Integer, String
+    Pydantic-style:
+
+        >>> from flycatcher import Schema, Field
         >>> class UserSchema(Schema):
-        ...     id = Integer(primary_key=True, autoincrement=True)
-        ...     email = String(unique=True, description="User email address")
-        ...     age = Integer(nullable=True, default=0)
+        ...     id: int = Field(primary_key=True, autoincrement=True)
+        ...     email: str = Field(unique=True, description="User email address")
+        ...     age: int | None = Field(default=0)
     """
 
     def __init__(
@@ -122,7 +338,7 @@ class Field:
         return self
 
 
-class Integer(Field):
+class Integer(FieldBase):
     """
     Integer field type with numeric constraints.
 
@@ -143,11 +359,11 @@ class Integer(Field):
 
     Examples
     --------
-        >>> from flycatcher import Schema, Integer
+        >>> from flycatcher import Field, Schema
         >>> class UserSchema(Schema):
-        ...     age = Integer(ge=0, le=120)
-        ...     score = Integer(gt=0, multiple_of=10)
-        ...     id = Integer(primary_key=True, autoincrement=True)
+        ...     age: int = Field(ge=0, le=120)
+        ...     score: int = Field(gt=0, multiple_of=10)
+        ...     id: int = Field(primary_key=True, autoincrement=True)
     """
 
     def __init__(
@@ -221,7 +437,7 @@ class Integer(Field):
         return kwargs
 
 
-class Float(Field):
+class Float(FieldBase):
     """
     Float field type with numeric constraints.
 
@@ -240,10 +456,10 @@ class Float(Field):
 
     Examples
     --------
-        >>> from flycatcher import Schema, Float
+        >>> from flycatcher import Field, Schema
         >>> class ProductSchema(Schema):
-        ...     price = Float(gt=0.0)
-        ...     discount = Float(ge=0.0, le=1.0, nullable=True)
+        ...     price: float = Field(gt=0.0)
+        ...     discount: float | None = Field(default=None, ge=0.0, le=1.0)
     """
 
     def __init__(
@@ -303,7 +519,7 @@ class Float(Field):
         return kwargs
 
 
-class String(Field):
+class String(FieldBase):
     r"""
     String field type with length and pattern constraints.
 
@@ -320,11 +536,11 @@ class String(Field):
 
     Examples
     --------
-        >>> from flycatcher import Schema, String
+        >>> from flycatcher import Field, Schema
         >>> class UserSchema(Schema):
-        ...     name = String(min_length=1, max_length=100)
-        ...     email = String(pattern=r'^[^@]+@[^@]+\.[^@]+$')
-        ...     bio = String(max_length=500, nullable=True)
+        ...     name: str = Field(min_length=1, max_length=100)
+        ...     email: str = Field(pattern=r'^[^@]+@[^@]+\.[^@]+$')
+        ...     bio: str | None = Field(default=None, max_length=500)
     """
 
     def __init__(
@@ -399,16 +615,16 @@ class String(Field):
         return kwargs
 
 
-class Boolean(Field):
+class Boolean(FieldBase):
     """
     Boolean field type.
 
     Examples
     --------
-        >>> from flycatcher import Schema, Boolean
+        >>> from flycatcher import Field, Schema
         >>> class UserSchema(Schema):
-        ...     is_active = Boolean(default=True)
-        ...     is_verified = Boolean(nullable=True)
+        ...     is_active: bool = True
+        ...     is_verified: bool | None = None
     """
 
     def get_python_type(self):
@@ -423,17 +639,17 @@ class Boolean(Field):
         return SABoolean
 
 
-class Datetime(Field):
+class Datetime(FieldBase):
     """
     Datetime field type for datetime.datetime values.
 
     Examples
     --------
-        >>> from flycatcher import Schema, Datetime
         >>> from datetime import datetime
+        >>> from flycatcher import Schema
         >>> class EventSchema(Schema):
-        ...     created_at = Datetime()
-        ...     updated_at = Datetime(nullable=True)
+        ...     created_at: datetime
+        ...     updated_at: datetime | None = None
     """
 
     def __init__(
@@ -501,17 +717,17 @@ class Datetime(Field):
         return kwargs
 
 
-class Date(Field):
+class Date(FieldBase):
     """
     Date field type for datetime.date values.
 
     Examples
     --------
-        >>> from flycatcher import Schema, Date
         >>> from datetime import date
+        >>> from flycatcher import Schema, Date
         >>> class BookingSchema(Schema):
-        ...     check_in = Date()
-        ...     check_out = Date()
+        ...     check_in: date
+        ...     check_out: date
     """
 
     def get_python_type(self):
@@ -524,3 +740,34 @@ class Date(Field):
         from sqlalchemy import Date as SADate
 
         return SADate
+
+
+# Populate type mapping from Python types to Field classes
+# This is used by the Schema metaclass to create fields from type annotations
+_TYPE_MAP.update(
+    {
+        int: Integer,
+        str: String,
+        float: Float,
+        bool: Boolean,
+        datetime: Datetime,
+        date: Date,
+    }
+)
+
+
+def get_field_class_for_type(python_type: type) -> type[FieldBase] | None:
+    """
+    Get the appropriate Field class for a Python type.
+
+    Parameters
+    ----------
+    python_type : type
+        A Python type (int, str, float, bool, datetime, date).
+
+    Returns
+    -------
+    type[FieldBase] | None
+        The corresponding Field class, or None if not found.
+    """
+    return _TYPE_MAP.get(python_type)
