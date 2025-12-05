@@ -2,6 +2,10 @@ name-template: "v$RESOLVED_VERSION"
 tag-template: "v$RESOLVED_VERSION"
 
 categories:
+  - title: "🚨 Breaking Changes"
+    labels:
+      - "breaking"
+      - "major"
   - title: "🚀 Features"
     labels:
       - "feature"
@@ -67,9 +71,9 @@ version-resolver:
   major:
     labels:
       - "major"
-      - "breaking"
   minor:
     labels:
+      - "breaking"
       - "minor"
       - "feature"
       - "enhancement"
@@ -101,8 +105,12 @@ autolabeler:
   # Title-based labels (checked first, take priority over file-based labels)
   - label: "enhancement"
     title:
-      - "/^feat:/i"
+      - "/^feat!?[:]/i"
       - "/^feature:/i"
+  - label: "breaking"
+    title:
+      - "/^(feat|fix|chore|refactor|perf|ci|docs?|test)(\\([^\\)]+\\))?!:/i"
+      - "/^break(?:ing)?:/i"
   - label: "bug"
     title:
       - "/^fix:/i"
