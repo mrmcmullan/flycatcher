@@ -1,6 +1,7 @@
 """Tests for validator DSL and validation execution."""
 
 import sys
+from datetime import datetime
 
 import polars as pl
 import pytest
@@ -622,3 +623,86 @@ class TestStringOperations:
         )
         result = df.filter(expr.to_polars())
         assert result.height == 2  # Only .com emails pass
+
+
+class TestDateTimeOperations:
+    """Test datetime operations on FieldRef."""
+
+    def test_components_polars(self):
+        """year/month/day/hour/minute/second compile to Polars."""
+        ts = col("ts")
+        exprs = {
+            "year": ts.dt.year(),
+            "month": ts.dt.month(),
+            "day": ts.dt.day(),
+            "hour": ts.dt.hour(),
+            "minute": ts.dt.minute(),
+            "second": ts.dt.second(),
+        }
+
+        df = pl.DataFrame(
+            {
+                "ts": [
+                    datetime(2024, 1, 2, 3, 4, 5),
+                    datetime(2023, 5, 6, 7, 8, 9),
+                ]
+            }
+        )
+        result = df.select(
+            [expr.to_polars().alias(name) for name, expr in exprs.items()]
+        )
+
+        assert result["year"].to_list() == [2024, 2023]
+        assert result["month"].to_list() == [1, 5]
+        assert result["day"].to_list() == [2, 6]
+        assert result["hour"].to_list() == [3, 7]
+        assert result["minute"].to_list() == [4, 8]
+        assert result["second"].to_list() == [5, 9]
+
+    def test_components_python(self):
+        """year/month/day/hour/minute/second evaluate in Python."""
+        ts = col("ts")
+        exprs = {
+            "year": ts.dt.year(),
+            "month": ts.dt.month(),
+            "day": ts.dt.day(),
+            "hour": ts.dt.hour(),
+            "minute": ts.dt.minute(),
+            "second": ts.dt.second(),
+        }
+        values = {"ts": datetime(2024, 2, 3, 4, 5, 6)}
+
+        assert exprs["year"].to_python(values) == 2024
+        assert exprs["month"].to_python(values) == 2
+        assert exprs["day"].to_python(values) == 3
+        assert exprs["hour"].to_python(values) == 4
+        assert exprs["minute"].to_python(values) == 5
+        assert exprs["second"].to_python(values) == 6
+
+    def test_total_days_polars(self):
+        """total_days compiles to Polars and returns total days."""
+        ts = col("ts")
+        anchor = datetime(2024, 1, 1)
+        df = pl.DataFrame(
+            {
+                "ts": [
+                    datetime(2024, 1, 2),
+                    datetime(2024, 1, 3),
+                ]
+            }
+        )
+        expr = ts.dt.total_days(anchor)
+        result = df.select(expr.to_polars().alias("diff"))
+        assert result["diff"].to_list() == [
+            1.0,
+            2.0,
+        ]
+
+    def test_total_days_python(self):
+        """total_days evaluates to total days (float) in Python."""
+        ts = col("ts")
+        anchor = datetime(2024, 1, 1)
+        expr = ts.dt.total_days(anchor)
+
+        delta = expr.to_python({"ts": datetime(2024, 1, 2)})
+        assert delta == 1.0

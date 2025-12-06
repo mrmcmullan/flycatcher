@@ -1,6 +1,7 @@
 """`col()` alias and validator DSL public API for the flycatcher package."""
 
 from .core import BinaryOp, FieldRef, UnaryOp, ValidatorResult, col
+from .datetime import DateTimeAccessor, DateTimeOp
 from .string import StringAccessor, StringOp
 
 __all__ = [
@@ -11,4 +12,6 @@ __all__ = [
     "ValidatorResult",
     "StringAccessor",
     "StringOp",
+    "DateTimeAccessor",
+    "DateTimeOp",
 ]

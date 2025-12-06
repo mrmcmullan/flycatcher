@@ -99,12 +99,16 @@ col('discount').is_not_null()
 
 ```python
 # Extract components
-col('created_at').dt.year == 2024
-col('created_at').dt.month.is_in([6, 7, 8])  # Summer months
-col('created_at').dt.day >= 15
+col('created_at').dt.year() == 2024
+col('created_at').dt.month() == 6  # June
+col('created_at').dt.day() >= 15
+col('created_at').dt.hour() < 18  # Before 6 PM
+col('created_at').dt.minute() == 0  # On the hour
+col('created_at').dt.second() == 0  # On the minute
 
-# Date arithmetic (coming soon)
-# col('end_date') - col('start_date') > timedelta(days=7)
+# Date difference (returns float days)
+col('check_out').dt.total_days(col('check_in')) >= 2  # Minimum 2 nights
+col('created_at').dt.total_days(datetime(2024, 1, 1)) > 0  # After Jan 1, 2024
 ```
 
 ---
@@ -227,10 +231,10 @@ class BookingSchema(Schema):
     def check_minimum_stay():
         """Weekend bookings require 2+ night minimum."""
         # For weekends (check-in on Fri/Sat), require 2+ nights
+        # Note: weekday() not yet available in DSL, use explicit Polars for now
         return (
-            ~(col('check_in').dt.weekday().is_in([4, 5]))  # Not Fri/Sat
-            | ((col('check_out').dt.day - col('check_in').dt.day) >= 2),
-            "Weekend bookings require minimum 2 nights"
+            col('check_out').dt.total_days(col('check_in')) >= 2,
+            "Minimum stay is 2 nights"
         )
 ```
 
