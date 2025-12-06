@@ -172,7 +172,7 @@ Use standard Python types with `Field(...)` constraints:
 | `str` | `min_length`, `max_length`, `pattern` | `email: str = Field(pattern=r'^[^@]+@...')` |
 | `bool` | - | `is_active: bool = Field(default=True)` |
 | `datetime` | `ge`, `gt`, `le`, `lt` | `created_at: datetime = Field(ge=datetime(2020, 1, 1))` |
-| `date` | - | `birth_date: date` |
+| `date` | `ge`, `gt`, `le`, `lt` | `birth_date: date` |
 
 **All fields support (validation):** `nullable`, `default`, `description`
 
@@ -207,7 +207,8 @@ class BookingSchema(Schema):
 
     @model_validator
     def check_minimum_stay():
-        # For advanced operations like .dt.month, use explicit Polars format
+        # For operations not yet in DSL (like .is_in()), use explicit Polars format
+        # Note: .dt.month() is available in DSL, but .is_in() is not yet supported
         import polars as pl
         return {
             'polars': (
@@ -324,13 +325,15 @@ Flycatcher v0.1.0 is an **alpha release**. The core functionality works perfectl
 
 ### Polars DSL
 
-The `col()` DSL supports basic operations (`>`, `<`, `==`, `+`, `-`, `*`, `/`, `&`, `|`), but advanced Polars operations require explicit format:
+The `col()` DSL supports **basic operations** (`>`, `<`, `==`, `+`, etc.),
+**limited string operations** (`.str.contains()`, `.str.starts_with()`, `.str.len_chars()`, etc.),
+ and a **limited datetime accessor** (`.dt.year()`, `.dt.month()`, `.dt.total_days(other)`, etc.).
 
-- ❌ `.str.contains()`, `.str.startswith()` - Use explicit Polars or field constraints
-- ❌ `.dt.month`, `.dt.year` - Use explicit Polars format
-- ❌ `.is_in([...])` - Use explicit Polars format
+The `col()` DSL does not support the full range of Polars operations. However, additional
+operations will be added in future versions to better support the full functionality of Polars.
 
 **Workaround**: Use the explicit format in `@model_validator`:
+
 ```python
 @model_validator
 def check():
@@ -341,6 +344,7 @@ def check():
 ```
 
 ### Pydantic Features
+
 - ❌ `@field_validator` - Only `@model_validator` is supported (coming in v0.2.0)
 - ❌ Field aliases and computed fields (coming in v0.2.0+)
 - ❌ Custom serialization options (coming in v0.2.0+)
@@ -348,6 +352,7 @@ def check():
 **Workaround**: Use `@model_validator` for all validation needs.
 
 ### SQLAlchemy Features
+
 - ❌ Foreign key relationships - Must be added manually after table generation (coming in v0.3.0+)
 - ❌ Composite primary keys - Only single-field primary keys supported (coming in v0.3.0+)
 - ❌ Function-based defaults (e.g., `default=func.now()`) - Only literal defaults supported
@@ -355,6 +360,7 @@ def check():
 **Workaround**: Add relationships and composite keys manually in SQLAlchemy after table generation.
 
 ### Field Types
+
 - ❌ Enum, UUID, JSON, Array field types (coming in v0.3.0+)
 - ❌ Numeric/Decimal field type (coming in v0.3.0+)
 

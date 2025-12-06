@@ -17,30 +17,54 @@ class DateTimeAccessor:
         self.expr = expr
 
     def year(self) -> "DateTimeOp":
+        """Extract the year component from a datetime or date value."""
         return DateTimeOp("year", self.expr, None)
 
     def month(self) -> "DateTimeOp":
+        """Extract the month component (1-12) from a datetime or date value."""
         return DateTimeOp("month", self.expr, None)
 
     def day(self) -> "DateTimeOp":
+        """Extract the day component (1-31) from a datetime or date value."""
         return DateTimeOp("day", self.expr, None)
 
     def hour(self) -> "DateTimeOp":
+        """Extract the hour component (0-23) from a datetime value."""
         return DateTimeOp("hour", self.expr, None)
 
     def minute(self) -> "DateTimeOp":
+        """Extract the minute component (0-59) from a datetime value."""
         return DateTimeOp("minute", self.expr, None)
 
     def second(self) -> "DateTimeOp":
+        """Extract the second component (0-59) from a datetime value."""
         return DateTimeOp("second", self.expr, None)
 
     def total_days(self, other: Any) -> "DateTimeOp":
-        """Difference in days between this value and another datetime-like."""
+        """
+        Calculate the difference in days between this value and another.
+
+        Parameters
+        ----------
+        other : datetime, date, or FieldRef
+            The value to compare against.
+
+        Returns
+        -------
+        DateTimeOp
+            An expression evaluating to the number of days difference (float),
+            positive if this value is later.
+        """
         return DateTimeOp("total_days", self.expr, other)
 
 
 class DateTimeOp(_ExpressionMixin):
-    """Datetime operation that can compile to both Polars and Python."""
+    """Datetime operation that can compile to both Polars and Python.
+
+    This class represents datetime operations (like extracting year, month, or
+    calculating differences) that work seamlessly in both Polars DataFrame
+    validation and Pydantic row-level validation contexts.
+    """
 
     POLARS_COMPONENTS: dict[str, str] = {
         "year": "year",
