@@ -9,6 +9,7 @@ import polars as pl
 from loguru import logger
 
 if TYPE_CHECKING:  # pragma: no cover
+    from .datetime import DateTimeAccessor
     from .string import StringAccessor
 
 
@@ -108,6 +109,13 @@ class FieldRef:
         from .string import StringAccessor
 
         return StringAccessor(self)
+
+    @property
+    def dt(self) -> "DateTimeAccessor":
+        """Access datetime operations on this field."""
+        from .datetime import DateTimeAccessor
+
+        return DateTimeAccessor(self)
 
 
 class BinaryOp(_ExpressionMixin):
@@ -214,6 +222,13 @@ class BinaryOp(_ExpressionMixin):
 
         return StringAccessor(self)
 
+    @property
+    def dt(self) -> "DateTimeAccessor":
+        """Access datetime operations on this expression."""
+        from .datetime import DateTimeAccessor
+
+        return DateTimeAccessor(self)
+
 
 class UnaryOp(_ExpressionMixin):
     """Unary operation that can compile to both Polars and Python."""
@@ -303,6 +318,13 @@ class UnaryOp(_ExpressionMixin):
         from .string import StringAccessor
 
         return StringAccessor(self)
+
+    @property
+    def dt(self) -> "DateTimeAccessor":
+        """Access datetime operations on this expression."""
+        from .datetime import DateTimeAccessor
+
+        return DateTimeAccessor(self)
 
 
 def col(name: str) -> FieldRef:

@@ -8,6 +8,8 @@ from typing import Any, Callable
 
 import polars as pl
 
+from flycatcher.validators.datetime import DateTimeAccessor
+
 from .core import BinaryOp, UnaryOp, _ExpressionMixin
 
 
@@ -165,6 +167,13 @@ class StringOp(_ExpressionMixin):
     def str(self) -> "StringAccessor":
         """Access string operations on this expression (for chaining)."""
         return StringAccessor(self)
+
+    @property
+    def dt(self) -> "DateTimeAccessor":
+        """Access datetime operations on this expression (for chaining)."""
+        from .datetime import DateTimeAccessor
+
+        return DateTimeAccessor(self)
 
     def abs(self) -> UnaryOp:
         """Absolute value (for numeric results like len_chars)."""
