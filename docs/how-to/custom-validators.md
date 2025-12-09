@@ -95,6 +95,23 @@ col('discount').is_null()
 col('discount').is_not_null()
 ```
 
+### Membership Operations
+
+```python
+# Membership with optional null matching
+col('country').is_in(['US', 'CA'])
+col('country').is_in([None, 'CA'], nulls_equal=True)
+
+# Between with configurable interval closure
+col('age').is_between(18, 65)                  # inclusive on both sides
+col('score').is_between('min_score', 'max_score', closed='right')
+```
+
+- `is_in` accepts a sequence or Series; set `nulls_equal=True` to treat `None`
+  as a distinct value instead of propagating nulls.
+- `is_between` accepts expressions for bounds (strings are parsed as column
+  names) and supports `closed='both' | 'left' | 'right' | 'none'`.
+
 ### Date/Time Operations
 
 ```python

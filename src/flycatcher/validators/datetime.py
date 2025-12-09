@@ -7,7 +7,9 @@ from typing import Any, cast
 
 import polars as pl
 
-from .core import BinaryOp, UnaryOp, _ExpressionMixin
+from .base import _ExpressionMixin
+from .membership import _MembershipMixin
+from .ops import BinaryOp, UnaryOp
 
 
 class DateTimeAccessor:
@@ -58,7 +60,7 @@ class DateTimeAccessor:
         return DateTimeOp("total_days", self.expr, other)
 
 
-class DateTimeOp(_ExpressionMixin):
+class DateTimeOp(_ExpressionMixin, _MembershipMixin):
     """Datetime operation that can compile to both Polars and Python.
 
     This class represents datetime operations (like extracting year, month, or

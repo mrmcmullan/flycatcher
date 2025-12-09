@@ -10,7 +10,9 @@ import polars as pl
 
 from flycatcher.validators.datetime import DateTimeAccessor
 
-from .core import BinaryOp, UnaryOp, _ExpressionMixin
+from .base import _ExpressionMixin
+from .membership import _MembershipMixin
+from .ops import BinaryOp, UnaryOp
 
 
 class StringAccessor:
@@ -53,7 +55,7 @@ class StringAccessor:
         return StringOp("count_matches", self.expr, pattern)
 
 
-class StringOp(_ExpressionMixin):
+class StringOp(_ExpressionMixin, _MembershipMixin):
     """String operation that can compile to both Polars and Python."""
 
     POLARS_OPS: dict[builtins.str, Callable[[pl.Expr, Any], pl.Expr]] = {

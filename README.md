@@ -414,7 +414,7 @@ def check():
 **Theme:** Enhanced validation and database operations
 
 - [ ] `@field_validator` support in addition to existing `@model_validator`
-- [ ] Enhanced Polars DSL: `.is_null()`, `.is_not_null()`, `.str.contains()`, `.str.startswith()`, `.dt.month`, `.dt.year`, `.is_in([...])`
+- [x] Enhanced Polars DSL: `.is_null()`, `.is_not_null()`, `.str.contains()`, `.str.startswith()`, `.dt.month`, `.dt.year`, `.is_in([...])`, `.is_between()`
 - [ ] Pydantic enhancements: field aliases, computed fields, custom serialization
 - [ ] Enable inheritance of `Schema` to create subclasses with different fields
 - [ ] For more details, see the [GitHub Milestone for v0.2.0](https://github.com/mrmcmullan/flycatcher/milestone/2)
