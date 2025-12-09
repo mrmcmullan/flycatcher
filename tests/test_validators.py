@@ -170,6 +170,87 @@ class TestUnaryOp:
         assert expr.to_python({"is_not_null": None}) is False
 
 
+class TestMembershipOperations:
+    """Test membership helpers like is_in and is_between."""
+
+    def test_is_in_polars(self):
+        """is_in() compiles to Polars and handles null propagation."""
+        country = col("country")
+        expr = country.is_in(["US", "CA"])
+
+        df = pl.DataFrame({"country": ["US", "MX", None, "CA"]})
+        result = df.filter(expr.to_polars())
+        assert result["country"].to_list() == ["US", "CA"]
+
+    def test_is_in_nulls_equal_polars(self):
+        """nulls_equal=True treats None as a distinct, matchable value."""
+        country = col("country")
+        expr = country.is_in([None, "CA"], nulls_equal=True)
+
+        df = pl.DataFrame({"country": ["US", None, "CA"]})
+        matches = df.select(expr.to_polars().alias("match"))["match"].to_list()
+        assert matches == [False, True, True]
+
+    def test_is_in_python(self):
+        """is_in() evaluates in Python with null handling."""
+        country = col("country")
+        expr = country.is_in(["US", "CA"])
+
+        assert expr.to_python({"country": "US"}) is True
+        assert expr.to_python({"country": "MX"}) is False
+        assert expr.to_python({"country": None}) is None
+
+        null_expr = country.is_in([None], nulls_equal=True)
+        assert null_expr.to_python({"country": None}) is True
+
+    def test_is_between_polars_closed_variants(self):
+        """is_between() supports closed intervals."""
+        age = col("age")
+
+        df = pl.DataFrame({"age": [18, 19, 30, 31]})
+        assert df.filter(age.is_between(18, 30).to_polars())["age"].to_list() == [
+            18,
+            19,
+            30,
+        ]
+        assert df.filter(age.is_between(18, 30, closed="left").to_polars())[
+            "age"
+        ].to_list() == [18, 19]
+        assert df.filter(age.is_between(18, 30, closed="right").to_polars())[
+            "age"
+        ].to_list() == [19, 30]
+        assert df.filter(age.is_between(18, 30, closed="none").to_polars())[
+            "age"
+        ].to_list() == [19]
+
+    def test_is_between_polars_column_bounds(self):
+        """String bounds are parsed as column references."""
+        value = col("value")
+        expr = value.is_between("low", "high", closed="right")
+
+        df = pl.DataFrame(
+            {
+                "value": [5, 10, 15],
+                "low": [0, 10, 20],
+                "high": [10, 15, 30],
+            }
+        )
+
+        filtered = df.filter(expr.to_polars())
+        assert filtered["value"].to_list() == [5]
+
+    def test_is_between_python(self):
+        """is_between() evaluates bounds in Python."""
+        age = col("age")
+
+        assert age.is_between(18, 30).to_python({"age": 30}) is True
+        assert age.is_between(18, 30).to_python({"age": 17}) is False
+        assert age.is_between(18, 30, closed="none").to_python({"age": 18}) is False
+
+        values = {"age": 10, "low": 5, "high": 10}
+        assert age.is_between("low", "high", closed="right").to_python(values) is True
+
+
 class TestValidatorResult:
     """Test ValidatorResult wrapper."""
 
