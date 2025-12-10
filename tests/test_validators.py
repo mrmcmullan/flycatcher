@@ -1,5 +1,6 @@
 """Tests for validator DSL and validation execution."""
 
+import math
 import sys
 from datetime import datetime
 
@@ -168,6 +169,66 @@ class TestUnaryOp:
         expr = is_not_null.is_not_null()
         assert expr.to_python({"is_not_null": True}) is True
         assert expr.to_python({"is_not_null": None}) is False
+
+
+class TestMathOperations:
+    """Test numeric math operations."""
+
+    def test_round_matches_polars(self):
+        """round() aligns with Polars rounding and null propagation."""
+        expr = col("value").round(1)
+        df = pl.DataFrame({"value": [1.24, 1.25, None, 2.555]})
+
+        polars_vals = df.select(expr.to_polars().alias("rounded"))["rounded"].to_list()
+        python_vals = [expr.to_python({"value": v}) for v in df["value"].to_list()]
+
+        assert polars_vals == python_vals
+        assert isinstance(expr.to_python({"value": 5}), int)
+
+    def test_floor_and_ceil(self):
+        """floor() and ceil() mirror Polars for positives, negatives, and nulls."""
+        values = {"value": [1.8, -1.2, None]}
+        df = pl.DataFrame(values)
+
+        floor_expr = col("value").floor()
+        ceil_expr = col("value").ceil()
+
+        floor_polars = df.select(floor_expr.to_polars().alias("floor"))[
+            "floor"
+        ].to_list()
+        ceil_polars = df.select(ceil_expr.to_polars().alias("ceil"))["ceil"].to_list()
+
+        floor_python = [floor_expr.to_python({"value": v}) for v in values["value"]]
+        ceil_python = [ceil_expr.to_python({"value": v}) for v in values["value"]]
+
+        assert floor_polars == floor_python
+        assert ceil_polars == ceil_python
+
+    def test_sqrt(self):
+        """sqrt() matches Polars including nan for negative inputs."""
+        expr = col("value").sqrt()
+        df = pl.DataFrame({"value": [4.0, 9.0, -1.0, None]})
+        polars_vals = df.select(expr.to_polars().alias("sqrt"))["sqrt"].to_list()
+        python_vals = [expr.to_python({"value": v}) for v in df["value"].to_list()]
+
+        for pl_val, py_val in zip(polars_vals, python_vals, strict=True):
+            if pl_val is None:
+                assert py_val is None
+            elif isinstance(pl_val, float) and math.isnan(pl_val):
+                assert isinstance(py_val, float) and math.isnan(py_val)
+            else:
+                assert pl_val == py_val
+
+    def test_pow(self):
+        """pow() raises to exponent while preserving ints when possible."""
+        expr = col("value").pow(3)
+        df = pl.DataFrame({"value": [2.0, 3.0, None]})
+
+        polars_vals = df.select(expr.to_polars().alias("pow"))["pow"].to_list()
+        python_vals = [expr.to_python({"value": v}) for v in df["value"].to_list()]
+
+        assert polars_vals == python_vals
+        assert expr.to_python({"value": 2}) == 8
 
 
 class TestMembershipOperations:
