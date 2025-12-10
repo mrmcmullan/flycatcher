@@ -326,6 +326,7 @@ Flycatcher v0.1.0 is an **alpha release**. The core functionality works perfectl
 ### Polars DSL
 
 The `col()` DSL supports **basic operations** (`>`, `<`, `==`, `+`, etc.),
+**numeric math operations** (`.abs()`, `.round()`, `.floor()`, `.ceil()`, `.sqrt()`, `.pow()`),
 **limited string operations** (`.str.contains()`, `.str.starts_with()`, `.str.len_chars()`, etc.),
  and a **limited datetime accessor** (`.dt.year()`, `.dt.month()`, `.dt.total_days(other)`, etc.).
 

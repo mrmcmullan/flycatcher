@@ -112,6 +112,36 @@ col('score').is_between('min_score', 'max_score', closed='right')
 - `is_between` accepts expressions for bounds (strings are parsed as column
   names) and supports `closed='both' | 'left' | 'right' | 'none'`.
 
+### Numeric & Math Operations
+
+For numeric fields, you can use Polars-style math helpers that work in both
+Polars and Pydantic contexts:
+
+```python
+# Absolute value (already available)
+col('delta').abs() > 0
+
+# Rounding
+col('price').round(2)  # 2 decimal places
+col('score').round()   # to integer
+
+# Floor / ceil
+col('score').floor() >= 0
+col('ratio').ceil() <= 10
+
+# Square root
+col('variance').sqrt() <= 5
+
+# Power
+col('amount').pow(2) <= col('limit')
+```
+
+- The DSL mirrors the Polars API where possible (`round(decimals=0)`,
+  `.floor()`, `.ceil()`, `.sqrt()`, `.pow(exponent)`).
+- On the Python side, these use the standard library (`round`, `math`) so
+  behavior is consistent with built-in Python and no extra dependencies are
+  required.
+
 ### Date/Time Operations
 
 ```python

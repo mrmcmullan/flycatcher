@@ -9,14 +9,14 @@ import polars as pl
 from loguru import logger
 
 from .membership import _MembershipMixin
-from .ops import BinaryOp, UnaryOp
+from .ops import BinaryOp, UnaryOp, _MathOpsMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from .datetime import DateTimeAccessor
     from .string import StringAccessor
 
 
-class FieldRef(_MembershipMixin):
+class FieldRef(_MathOpsMixin, _MembershipMixin):
     """
     Reference to a field that can compile to Polars expressions and Python callables.
     """
