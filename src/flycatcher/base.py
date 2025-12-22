@@ -32,6 +32,7 @@ class SchemaMeta(type):
         inherited_fields: dict[str, FieldBase] = {}
         inherited_model_validators: list[Callable] = []
         inherited_field_validators: dict[str, list[Callable]] = {}
+        inherited_frame_validators: list[Callable] = []
 
         # Walk the MRO in reverse order so that closer parents override further ones
         for base in reversed(bases):
@@ -54,6 +55,13 @@ class SchemaMeta(type):
                     if field_name not in inherited_field_validators:
                         inherited_field_validators[field_name] = []
                     inherited_field_validators[field_name].extend(validators)
+            if hasattr(base, "_frame_validators") and isinstance(
+                base._frame_validators, list
+            ):
+                # Extend with parent frame validators
+                for validator in base._frame_validators:
+                    if validator not in inherited_frame_validators:
+                        inherited_frame_validators.append(validator)
 
         # Start with inherited, will be overridden by current class
         fields: dict[str, FieldBase] = dict(inherited_fields)
@@ -61,6 +69,7 @@ class SchemaMeta(type):
         field_validators: dict[str, list[Callable]] = {
             k: list(v) for k, v in inherited_field_validators.items()
         }
+        frame_validators: list[Callable] = list(inherited_frame_validators)
 
         # Get type annotations (supports both Python 3.10+ and older)
         annotations = namespace.get("__annotations__", {})
@@ -152,7 +161,7 @@ class SchemaMeta(type):
             field.name = field_name
             fields[field_name] = field
 
-        # Collect model validators and field validators
+        # Collect model validators, field validators, and frame validators
         for _key, value in list(namespace.items()):
             if callable(value) and getattr(value, "_is_model_validator", False):
                 model_validators.append(value)
@@ -163,6 +172,9 @@ class SchemaMeta(type):
                     if target_field not in field_validators:
                         field_validators[target_field] = []
                     field_validators[target_field].append(value)
+            elif callable(value) and getattr(value, "_is_frame_validator", False):
+                # Frame validator: validates entire DataFrame
+                frame_validators.append(value)
             elif isinstance(value, classmethod):
                 # Handle @classmethod decorator - check the underlying function
                 func = value.__func__
@@ -174,11 +186,14 @@ class SchemaMeta(type):
                         if target_field not in field_validators:
                             field_validators[target_field] = []
                         field_validators[target_field].append(value)
+                elif getattr(func, "_is_frame_validator", False):
+                    frame_validators.append(value)
 
         # Store fields and validators in the class
         namespace["_fields"] = fields
         namespace["_model_validators"] = model_validators
         namespace["_field_validators"] = field_validators
+        namespace["_frame_validators"] = frame_validators
 
         return super().__new__(mcs, name, bases, namespace)
 
@@ -270,6 +285,7 @@ class Schema(metaclass=SchemaMeta):
     _fields: dict[str, FieldBase] = {}
     _model_validators: list[Callable] = []
     _field_validators: dict[str, list[Callable]] = {}
+    _frame_validators: list[Callable] = []
     _pydantic_model_cache: ClassVar[type[BaseModel] | None] = None
 
     def __init__(self, **data: Any) -> None:
@@ -592,6 +608,33 @@ class Schema(metaclass=SchemaMeta):
         """
         return {k: list(v) for k, v in cls._field_validators.items()}
 
+    @classmethod
+    def frame_validators(cls) -> list[Callable]:
+        """
+        Return all frame validators defined in this schema.
+
+        Returns
+        -------
+        list[Callable]
+            List of validator functions decorated with @frame_validator.
+
+        Examples
+        --------
+            >>> import polars as pl
+            >>> from flycatcher import Schema, frame_validator
+            >>> class OrderSchema(Schema):
+            ...     customer_id: int
+            ...     amount: float
+            ...
+            ...     @frame_validator
+            ...     def no_duplicates():
+            ...         return pl.col('customer_id').n_unique() == pl.len()
+            >>> validators = OrderSchema.frame_validators()
+            >>> len(validators)
+            1
+        """
+        return cls._frame_validators.copy()
+
 
 def model_validator(func: Callable) -> Callable:
     """
@@ -730,3 +773,78 @@ def field_validator(*fields: str, mode: str = "after") -> Callable[[Callable], C
         return func
 
     return decorator
+
+
+def frame_validator(
+    func: Callable | None = None,
+    *,
+    group_by: list[str] | None = None,
+) -> Callable:
+    """
+    Decorator for DataFrame-level validation.
+
+    Use this decorator to validate the entire DataFrame using Polars expressions
+    directly. Frame validators are only applied during Polars validation (not Pydantic).
+
+    Unlike ``@model_validator`` which validates individual rows, ``@frame_validator``
+    can use aggregations, window functions, and group-level constraints.
+
+    Parameters
+    ----------
+    func : Callable, optional
+        The validation function (when used without parentheses).
+    group_by : list[str], optional
+        Column names to group by before applying the validation.
+        When set, the validation is applied per group.
+
+    Returns
+    -------
+    Callable
+        The decorated function, marked as a frame validator.
+
+    Examples
+    --------
+    Basic frame validation (no grouping):
+
+        >>> import polars as pl
+        >>> from flycatcher import Schema, frame_validator
+        >>> class OrderSchema(Schema):
+        ...     customer_id: int
+        ...     amount: float
+        ...
+        ...     @frame_validator
+        ...     def no_duplicate_customers():
+        ...         return pl.col('customer_id').n_unique() == pl.len(), "Duplicate customers"
+
+    Group validation:
+
+        >>> class OrderSchema(Schema):
+        ...     customer_id: int
+        ...     amount: float
+        ...
+        ...     @frame_validator(group_by=['customer_id'])
+        ...     def min_orders_per_customer():
+        ...         return pl.len() >= 3, "Each customer needs at least 3 orders"
+
+    Using Polars expressions directly:
+
+        >>> class StatsSchema(Schema):
+        ...     value: float
+        ...
+        ...     @frame_validator
+        ...     def check_variance():
+        ...         return pl.col('value').std() < 10, "Values too spread out"
+    """
+
+    def decorator(fn: Callable) -> Callable:
+        fn._is_frame_validator = True  # type: ignore[attr-defined]
+        fn._frame_validator_group_by = group_by  # type: ignore[attr-defined]
+        return fn
+
+    # Handle both @frame_validator and @frame_validator(group_by=[...])
+    if func is not None:
+        # Called without parentheses: @frame_validator
+        return decorator(func)
+    else:
+        # Called with parentheses: @frame_validator(group_by=[...])
+        return decorator

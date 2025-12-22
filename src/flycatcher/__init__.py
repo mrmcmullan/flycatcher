@@ -18,7 +18,7 @@ For the Polars-like idiom, import as `fl`:
             return fl.col('name').str.len_chars() > 0
 """
 
-from .base import Schema, field_validator, model_validator
+from .base import Schema, field_validator, frame_validator, model_validator
 from .fields import (
     Date,
     Field,
@@ -36,6 +36,7 @@ __all__ = [
     "Date",
     "model_validator",
     "field_validator",
+    "frame_validator",
     # DSL
     "col",
     "FieldRef",

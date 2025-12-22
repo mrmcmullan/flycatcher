@@ -251,6 +251,66 @@ class PolarsValidator:
                 logger.warning(f"Count: {violation['count']}")
                 logger.warning(f"Rows: {violation['rows']}")
                 logger.warning("-" * 80)
+
+        # Apply frame validators (DataFrame-level validation)
+        for frame_validator in self.schema_cls.frame_validators():
+            # Handle both regular functions and classmethod descriptors
+            if isinstance(frame_validator, classmethod):
+                func = frame_validator.__func__
+            else:
+                func = frame_validator
+
+            # Get validator metadata
+            group_by = getattr(func, "_frame_validator_group_by", None)
+
+            # Call the validator to get the Polars expression
+            sig = inspect.signature(func)
+            if len(sig.parameters) > 0:
+                validator_result = func(self.schema_cls)  # type: ignore[call-arg]
+            else:
+                validator_result = func()  # type: ignore[call-arg]
+
+            # Extract expression and optional error message
+            if isinstance(validator_result, tuple) and len(validator_result) == 2:
+                expr, error_msg = validator_result
+            else:
+                expr = validator_result
+                error_msg = f"Frame validation failed: {func.__name__}"
+
+            try:
+                if group_by:
+                    # Per-group validation
+                    result = df.group_by(group_by).agg(expr.alias("__valid__"))
+                    invalid_groups = result.filter(~pl.col("__valid__"))
+                    if invalid_groups.height > 0:
+                        if strict:
+                            raise ValueError(
+                                f"Frame validation failed: {error_msg}\n"
+                                f"Invalid groups:\n{invalid_groups.head(5)}"
+                            )
+                        else:
+                            # Filter out rows from invalid groups
+                            valid_group_vals = result.filter(
+                                pl.col("__valid__")
+                            ).select(group_by)
+                            df = df.join(valid_group_vals, on=group_by, how="inner")
+                else:
+                    # Whole-DataFrame validation
+                    result = df.select(expr.alias("__valid__"))
+                    is_valid = result["__valid__"][0] if result.height > 0 else True
+                    if not is_valid:
+                        if strict:
+                            raise ValueError(f"Frame validation failed: {error_msg}")
+                        else:
+                            logger.warning(f"Frame validation failed: {error_msg}")
+            except ValueError:
+                raise
+            except Exception as e:
+                logger.warning(
+                    f"Could not evaluate frame validator '{func.__name__}': {e}",
+                    exc_info=True,
+                )
+
         return df
 
     @property
