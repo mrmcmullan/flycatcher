@@ -27,9 +27,22 @@ class SchemaMeta(type):
             name: str
             age: int = Field(ge=0)
             bio: str | None = None
+
+    The `table=True/False` parameter controls SQLAlchemy table generation:
+
+        class UserSchema(Schema, table=True):
+            id: int = Field(primary_key=True)
+            name: str
     """
 
-    def __new__(mcs, name, bases, namespace):
+    def __new__(
+        mcs,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        table: bool = True,
+        **kwargs: Any,
+    ) -> type:
         # Collect inherited fields and validators from parent Schema classes
         inherited_fields: dict[str, FieldBase] = {}
         inherited_model_validators: list[Callable] = []
@@ -206,14 +219,15 @@ class SchemaMeta(type):
                     field_name = getattr(func, "_computed_field_name", key)
                     computed_fields[field_name] = value
 
-        # Store fields and validators in the class
+        # Store fields, validators, and table flag in the class
         namespace["_fields"] = fields
         namespace["_model_validators"] = model_validators
         namespace["_field_validators"] = field_validators
         namespace["_frame_validators"] = frame_validators
         namespace["_computed_fields"] = computed_fields
+        namespace["_is_table"] = table
 
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(mcs, name, bases, namespace, **kwargs)
 
 
 def _create_field_with_valid_kwargs(
@@ -305,6 +319,7 @@ class Schema(metaclass=SchemaMeta):
     _field_validators: dict[str, list[Callable]] = {}
     _frame_validators: list[Callable] = []
     _computed_fields: dict[str, Callable] = {}
+    _is_table: bool = True
     _pydantic_model_cache: ClassVar[type[BaseModel] | None] = None
 
     def __init__(self, **data: Any) -> None:
@@ -794,11 +809,16 @@ class Schema(metaclass=SchemaMeta):
         sqlalchemy.Table
             A SQLAlchemy Table object.
 
+        Raises
+        ------
+        ValueError
+            If the schema was defined with `table=False`.
+
         Examples
         --------
             >>> from flycatcher import Field, Schema
             >>> from sqlalchemy import MetaData, create_engine
-            >>> class UserSchema(Schema):
+            >>> class UserSchema(Schema, table=True):
             ...     id: int = Field(primary_key=True)
             ...     name: str
             >>> metadata = MetaData()
@@ -806,9 +826,39 @@ class Schema(metaclass=SchemaMeta):
             >>> engine = create_engine("sqlite:///example.db")
             >>> metadata.create_all(engine)
         """
+        if not cls._is_table:
+            raise ValueError(
+                f"Schema '{cls.__name__}' was defined with table=False. "
+                f"Use table=True to generate SQLAlchemy tables."
+            )
+
         from .generators.sqlalchemy import create_sqlalchemy_table
 
         return create_sqlalchemy_table(cls, table_name=table_name, metadata=metadata)
+
+    @classmethod
+    def is_table(cls) -> bool:
+        """
+        Return whether this schema is intended for database table generation.
+
+        Returns
+        -------
+        bool
+            True if the schema was defined with `table=True` (default).
+
+        Examples
+        --------
+            >>> from flycatcher import Schema
+            >>> class UserSchema(Schema, table=True):
+            ...     name: str
+            >>> UserSchema.is_table()
+            True
+            >>> class ValidationOnlySchema(Schema, table=False):
+            ...     name: str
+            >>> ValidationOnlySchema.is_table()
+            False
+        """
+        return cls._is_table
 
     @classmethod
     def fields(cls) -> dict[str, FieldBase]:
