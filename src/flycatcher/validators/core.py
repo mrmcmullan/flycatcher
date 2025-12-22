@@ -299,6 +299,90 @@ class MultiColumnOp:
         return BinaryOp(self, "|", other)
 
 
+class Validator:
+    """
+    Typed validator for explicit dual Polars/Pydantic implementations.
+
+    Use this when you need different validation logic for Polars (DataFrame)
+    and Pydantic (row-level) validation. This is cleaner than the dict syntax
+    and provides better IDE support.
+
+    Parameters
+    ----------
+    polars : pl.Expr
+        Polars expression for DataFrame validation.
+    pydantic : Callable[[Any], bool], optional
+        Python callable for Pydantic validation. Receives the model instance
+        and should return True if valid. If None, validation is Polars-only.
+    message : str, default "Validation failed"
+        Error message when validation fails.
+
+    Examples
+    --------
+    Different logic for Polars vs Pydantic:
+
+        >>> from flycatcher import Schema, model_validator, Validator
+        >>> import polars as pl
+        >>>
+        >>> class StatsSchema(Schema):
+        ...     price: float
+        ...     threshold: float
+        ...
+        ...     @model_validator
+        ...     def check_price():
+        ...         return Validator(
+        ...             polars=pl.col('price').rolling_mean(5) > pl.col('threshold'),
+        ...             pydantic=lambda v: v.price > v.threshold,  # Simplified
+        ...             message="Price must exceed threshold"
+        ...         )
+
+    Polars-only validation:
+
+        >>> @model_validator
+        ... def check_rolling():
+        ...     return Validator(
+        ...         polars=pl.col('value').rolling_std(10) < 1.0,
+        ...         message="Rolling std must be < 1.0"
+        ...     )
+    """
+
+    def __init__(
+        self,
+        polars: pl.Expr,
+        pydantic: Any | None = None,
+        message: str = "Validation failed",
+    ):
+        self.polars = polars
+        self.pydantic = pydantic
+        self.message = message
+
+    def get_polars(self) -> tuple[pl.Expr, str]:
+        """Get Polars expression and message."""
+        return (self.polars, self.message)
+
+    def get_pydantic(self) -> Any | None:
+        """Get Pydantic validator callable, or None if not available."""
+        if self.pydantic is None:
+            logger.info(
+                f"Validator has no pydantic callable. "
+                f"Validation '{self.message}' will only run on DataFrames."
+            )
+            return None
+
+        def validator(values: Any) -> Any:
+            try:
+                result = self.pydantic(values)
+                if not result:
+                    raise ValueError(self.message)
+                return values
+            except ValueError:
+                raise
+            except Exception as e:
+                raise ValueError(f"{self.message}: {e}") from e
+
+        return validator
+
+
 class ValidatorResult:
     """Wrapper for validator results supporting multiple formats."""
 
@@ -307,7 +391,10 @@ class ValidatorResult:
 
     def get_polars_validator(self) -> tuple[pl.Expr, str]:
         """Extract Polars validator as (expression, message) tuple."""
-        if isinstance(self.result, dict):
+        # Handle Validator class (preferred typed approach)
+        if isinstance(self.result, Validator):
+            return self.result.get_polars()
+        elif isinstance(self.result, dict):
             if "polars" not in self.result:
                 raise ValueError(
                     "Dict validator must have 'polars' key. "
@@ -334,13 +421,16 @@ class ValidatorResult:
         else:
             raise ValueError(
                 f"Invalid validator result type: {type(self.result).__name__}. "
-                "Expected dict, tuple of (expr, msg), or object with "
+                "Expected Validator, dict, tuple of (expr, msg), or object with "
                 "'to_polars' method."
             )
 
     def get_pydantic_validator(self) -> Any | None:
         """Extract Pydantic validator callable, or None if not available."""
-        if isinstance(self.result, dict):
+        # Handle Validator class (preferred typed approach)
+        if isinstance(self.result, Validator):
+            return self.result.get_pydantic()
+        elif isinstance(self.result, dict):
             if "pydantic" not in self.result:
                 logger.warning(
                     "Dict validator does not have 'pydantic' key. "
