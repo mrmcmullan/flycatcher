@@ -289,3 +289,142 @@ def bulk_update(
     logger.info(f"Successfully updated {total_updated} rows in {table.name}")
     return total_updated
 
+
+def bulk_upsert(
+    schema_cls: "type[Schema]",
+    engine: Engine,
+    df: pl.DataFrame,
+    *,
+    on: list[str],
+    validate: bool = True,
+    chunk_size: int = 1000,
+) -> int:
+    """
+    Upsert (insert or update) a DataFrame into the database.
+
+    Uses dialect-specific SQL:
+    - PostgreSQL: INSERT ... ON CONFLICT DO UPDATE
+    - MySQL/MariaDB: INSERT ... ON DUPLICATE KEY UPDATE
+    - SQLite: INSERT ... ON CONFLICT DO UPDATE (SQLite 3.24+)
+
+    Parameters
+    ----------
+    schema_cls : type[Schema]
+        The schema class to use for validation and table generation.
+    engine : sqlalchemy.Engine
+        SQLAlchemy engine connected to the database.
+    df : polars.DataFrame
+        DataFrame containing the data to upsert.
+    on : list[str]
+        Column name(s) that define the conflict (typically primary key or unique).
+        These columns determine whether a row is inserted or updated.
+    validate : bool, default True
+        Whether to validate the DataFrame before upserting.
+    chunk_size : int, default 1000
+        Number of rows to upsert per batch.
+
+    Returns
+    -------
+    int
+        Number of rows affected (inserted + updated).
+
+    Raises
+    ------
+    ValueError
+        If the schema has `table=False`, conflict columns are missing,
+        or validation fails.
+    NotImplementedError
+        If the database dialect is not supported.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Field
+        >>> from sqlalchemy import create_engine
+        >>> import polars as pl
+        >>>
+        >>> class UserSchema(Schema, table=True):
+        ...     id: int = Field(primary_key=True)
+        ...     name: str
+        ...     email: str
+        >>>
+        >>> engine = create_engine("postgresql://...")
+        >>> users_df = pl.DataFrame({
+        ...     "id": [1, 2, 3],
+        ...     "name": ["Alice", "Bob", "Charlie"],
+        ...     "email": ["a@x.com", "b@x.com", "c@x.com"],
+        ... })
+        >>> rows_affected = UserSchema.upsert(engine, users_df, on=['id'])
+    """
+    from .dialects import create_upsert_statement
+
+    # Check if schema is a table
+    if not getattr(schema_cls, "_table", True):
+        raise ValueError(
+            f"Schema '{schema_cls.__name__}' has table=False and cannot be "
+            "used for database operations. Use table=True to enable."
+        )
+
+    # Validate conflict columns are present
+    for conflict_col in on:
+        if conflict_col not in df.columns:
+            raise ValueError(
+                f"Conflict column '{conflict_col}' not found in DataFrame. "
+                f"Available columns: {df.columns}"
+            )
+
+    # Validate if requested
+    if validate:
+        logger.info(f"Validating {df.height} rows before upsert...")
+        df = schema_cls.validate(df, strict=True, cast=True)
+        logger.info("Validation passed.")
+
+    # Get the SQLAlchemy table
+    table = schema_cls.to_sqlalchemy_table()
+
+    # Filter columns to only those that exist in the table and have persist=True
+    table_columns = {c.name for c in table.columns}
+    schema_fields = schema_cls.fields()
+
+    # Determine which DataFrame columns to include
+    columns_to_upsert = []
+    for col_name in df.columns:
+        if col_name in table_columns:
+            # Check if field has persist=True (default)
+            field = schema_fields.get(col_name)
+            if field is None or getattr(field, "persist", True):
+                columns_to_upsert.append(col_name)
+
+    # Columns to update on conflict (all non-conflict columns)
+    update_columns = [c for c in columns_to_upsert if c not in on]
+    
+    if not update_columns:
+        logger.warning(
+            "No columns to update on conflict. This will effectively be an "
+            "INSERT IGNORE. Consider using insert() instead."
+        )
+
+    # Select only the columns we need
+    df_to_upsert = df.select(columns_to_upsert)
+
+    # Perform chunked upserts
+    total_affected = 0
+
+    with Session(engine) as session:
+        for chunk_records in _chunk_dataframe(df_to_upsert, chunk_size):
+            if not chunk_records:
+                continue
+
+            # Create dialect-specific upsert statement
+            stmt = create_upsert_statement(
+                engine, table, on, update_columns
+            )
+            
+            session.execute(stmt, chunk_records)
+            total_affected += len(chunk_records)
+            logger.debug(f"Upserted chunk of {len(chunk_records)} rows")
+
+        session.commit()
+
+    logger.info(f"Successfully upserted {total_affected} rows into {table.name}")
+    return total_affected
+

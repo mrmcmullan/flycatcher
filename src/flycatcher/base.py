@@ -587,6 +587,74 @@ class Schema(metaclass=SchemaMeta):
         )
 
     @classmethod
+    def upsert(
+        cls,
+        engine: "Engine",
+        df: pl.DataFrame,
+        *,
+        on: list[str],
+        validate: bool = True,
+        chunk_size: int = 1000,
+    ) -> int:
+        """
+        Upsert (insert or update) a DataFrame into the database.
+
+        Uses dialect-specific SQL:
+        - PostgreSQL: INSERT ... ON CONFLICT DO UPDATE
+        - MySQL/MariaDB: INSERT ... ON DUPLICATE KEY UPDATE
+        - SQLite: INSERT ... ON CONFLICT DO UPDATE
+
+        Parameters
+        ----------
+        engine : sqlalchemy.Engine
+            SQLAlchemy engine connected to the database.
+        df : polars.DataFrame
+            DataFrame containing the data to upsert.
+        on : list[str]
+            Column name(s) that define the conflict (primary key or unique).
+        validate : bool, default True
+            Whether to validate the DataFrame before upserting.
+        chunk_size : int, default 1000
+            Number of rows to upsert per batch.
+
+        Returns
+        -------
+        int
+            Number of rows affected (inserted + updated).
+
+        Raises
+        ------
+        ValueError
+            If schema has `table=False`, conflict columns are missing, or validation fails.
+        NotImplementedError
+            If the database dialect is not supported.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, Field
+            >>> from sqlalchemy import create_engine
+            >>> import polars as pl
+            >>>
+            >>> class UserSchema(Schema, table=True):
+            ...     id: int = Field(primary_key=True)
+            ...     name: str
+            >>>
+            >>> engine = create_engine("postgresql://...")
+            >>> users = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+            >>> rows = UserSchema.upsert(engine, users, on=['id'])
+        """
+        from .db.operations import bulk_upsert
+
+        return bulk_upsert(
+            cls,
+            engine,
+            df,
+            on=on,
+            validate=validate,
+            chunk_size=chunk_size,
+        )
+
+    @classmethod
     def to_pydantic(cls) -> type:
         """
         Generate a Pydantic BaseModel from this schema.
