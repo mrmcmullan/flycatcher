@@ -2,6 +2,20 @@
 Flycatcher: DataFrame-Native Data Layer
 
 Define your schema once. Validate at scale. Stay columnar.
+
+Usage
+-----
+For the Polars-like idiom, import as `fl`:
+
+    import flycatcher as fl
+    from flycatcher import Schema, Field, model_validator
+
+    class UserSchema(Schema):
+        name: str
+
+        @model_validator
+        def check():
+            return fl.col('name').str.len_chars() > 0
 """
 
 from .base import Schema, model_validator
