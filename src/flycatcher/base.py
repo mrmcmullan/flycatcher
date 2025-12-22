@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
     from sqlalchemy import Engine
     import polars as pl
+    from .db.query import QueryBuilder
 
 
 class SchemaMeta(type):
@@ -653,6 +654,54 @@ class Schema(metaclass=SchemaMeta):
             validate=validate,
             chunk_size=chunk_size,
         )
+
+    @classmethod
+    def query(cls, engine: "Engine") -> "QueryBuilder":
+        """
+        Create a query builder for SELECT operations.
+
+        Returns a fluent QueryBuilder that can be chained with filter(),
+        order_by(), limit(), and executed with execute().
+
+        Parameters
+        ----------
+        engine : sqlalchemy.Engine
+            SQLAlchemy engine connected to the database.
+
+        Returns
+        -------
+        QueryBuilder
+            A query builder instance for this schema.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, Field
+            >>> from sqlalchemy import create_engine
+            >>> import flycatcher as fl
+            >>>
+            >>> class UserSchema(Schema, table=True):
+            ...     id: int = Field(primary_key=True)
+            ...     name: str
+            ...     age: int
+            >>>
+            >>> engine = create_engine("sqlite:///users.db")
+            >>> users = (
+            ...     UserSchema.query(engine)
+            ...     .filter(fl.col('age') > 21)
+            ...     .limit(100)
+            ...     .execute()
+            ... )
+        """
+        from .db.query import QueryBuilder
+
+        # Check if schema is a table
+        if not getattr(cls, "_table", True):
+            raise ValueError(
+                f"Schema '{cls.__name__}' has table=False and cannot be "
+                "used for database operations. Use table=True to enable."
+            )
+
+        return QueryBuilder(cls, engine)
 
     @classmethod
     def to_pydantic(cls) -> type:
