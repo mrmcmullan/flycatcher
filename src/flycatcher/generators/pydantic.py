@@ -6,6 +6,7 @@ from typing import Any, Union
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, create_model, model_validator
 from pydantic import Field as PydanticField
+from pydantic import computed_field as pydantic_computed_field
 
 from ..base import Schema
 from ..fields import _MISSING
@@ -255,6 +256,44 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
 
         # Create the model class with validators in the namespace
         ModelWithValidators = type(model_name, (base_model,), namespace)
+
+        # Add computed fields to the model
+        _add_computed_fields(ModelWithValidators, schema_cls)
+
         return ModelWithValidators  # type: ignore[return-value]
 
+    # Add computed fields even if no validators
+    _add_computed_fields(base_model, schema_cls)
+
     return base_model  # type: ignore[no-any-return]
+
+
+def _add_computed_fields(model_cls: type[BaseModel], schema_cls: "type[Schema]") -> None:
+    """Add computed fields to a Pydantic model class."""
+    for field_name, compute_fn in schema_cls.computed_fields().items():
+        # Handle both regular functions and classmethod descriptors
+        if isinstance(compute_fn, classmethod):
+            func = compute_fn.__func__
+        else:
+            func = compute_fn
+
+        # Call the compute function to get the DSL expression
+        sig = inspect.signature(func)
+        if len(sig.parameters) > 0:
+            expr = func(schema_cls)  # type: ignore[call-arg]
+        else:
+            expr = func()  # type: ignore[call-arg]
+
+        # Create a property that computes the value
+        def make_property(dsl_expr: Any) -> property:
+            @pydantic_computed_field  # type: ignore[arg-type]
+            @property
+            def computed_prop(self: Any) -> Any:
+                if hasattr(dsl_expr, "to_python"):
+                    return dsl_expr.to_python(self)
+                return dsl_expr  # Literal value
+
+            return computed_prop
+
+        # Add the computed field as a property
+        setattr(model_cls, field_name, make_property(expr))

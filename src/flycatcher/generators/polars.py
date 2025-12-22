@@ -297,6 +297,34 @@ class PolarsValidator:
                 logger.warning(f"Rows: {violation['rows']}")
                 logger.warning("-" * 80)
 
+        # Add computed fields as columns
+        for field_name, compute_fn in self.schema_cls.computed_fields().items():
+            # Handle both regular functions and classmethod descriptors
+            if isinstance(compute_fn, classmethod):
+                func = compute_fn.__func__
+            else:
+                func = compute_fn
+
+            # Call the compute function to get the expression
+            sig = inspect.signature(func)
+            if len(sig.parameters) > 0:
+                expr = func(self.schema_cls)  # type: ignore[call-arg]
+            else:
+                expr = func()  # type: ignore[call-arg]
+
+            try:
+                if hasattr(expr, "to_polars"):
+                    polars_expr = expr.to_polars()
+                    df = df.with_columns(polars_expr.alias(field_name))
+                else:
+                    # Literal value - use pl.lit()
+                    df = df.with_columns(pl.lit(expr).alias(field_name))
+            except Exception as e:
+                logger.warning(
+                    f"Could not compute field '{field_name}': {e}",
+                    exc_info=True,
+                )
+
         # Apply frame validators (DataFrame-level validation)
         for frame_validator in self.schema_cls.frame_validators():
             # Handle both regular functions and classmethod descriptors

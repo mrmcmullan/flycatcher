@@ -35,6 +35,7 @@ class SchemaMeta(type):
         inherited_model_validators: list[Callable] = []
         inherited_field_validators: dict[str, list[Callable]] = {}
         inherited_frame_validators: list[Callable] = []
+        inherited_computed_fields: dict[str, Callable] = {}
 
         # Walk the MRO in reverse order so that closer parents override further ones
         for base in reversed(bases):
@@ -64,6 +65,12 @@ class SchemaMeta(type):
                 for validator in base._frame_validators:
                     if validator not in inherited_frame_validators:
                         inherited_frame_validators.append(validator)
+            if hasattr(base, "_computed_fields") and isinstance(
+                base._computed_fields, dict
+            ):
+                # Copy parent computed fields
+                for field_name, compute_fn in base._computed_fields.items():
+                    inherited_computed_fields[field_name] = compute_fn
 
         # Start with inherited, will be overridden by current class
         fields: dict[str, FieldBase] = dict(inherited_fields)
@@ -72,6 +79,7 @@ class SchemaMeta(type):
             k: list(v) for k, v in inherited_field_validators.items()
         }
         frame_validators: list[Callable] = list(inherited_frame_validators)
+        computed_fields: dict[str, Callable] = dict(inherited_computed_fields)
 
         # Get type annotations (supports both Python 3.10+ and older)
         annotations = namespace.get("__annotations__", {})
@@ -163,8 +171,8 @@ class SchemaMeta(type):
             field.name = field_name
             fields[field_name] = field
 
-        # Collect model validators, field validators, and frame validators
-        for _key, value in list(namespace.items()):
+        # Collect model validators, field validators, frame validators, and computed fields
+        for key, value in list(namespace.items()):
             if callable(value) and getattr(value, "_is_model_validator", False):
                 model_validators.append(value)
             elif callable(value) and getattr(value, "_is_field_validator", False):
@@ -177,6 +185,10 @@ class SchemaMeta(type):
             elif callable(value) and getattr(value, "_is_frame_validator", False):
                 # Frame validator: validates entire DataFrame
                 frame_validators.append(value)
+            elif callable(value) and getattr(value, "_is_computed_field", False):
+                # Computed field: derived from other fields
+                field_name = getattr(value, "_computed_field_name", key)
+                computed_fields[field_name] = value
             elif isinstance(value, classmethod):
                 # Handle @classmethod decorator - check the underlying function
                 func = value.__func__
@@ -190,12 +202,16 @@ class SchemaMeta(type):
                         field_validators[target_field].append(value)
                 elif getattr(func, "_is_frame_validator", False):
                     frame_validators.append(value)
+                elif getattr(func, "_is_computed_field", False):
+                    field_name = getattr(func, "_computed_field_name", key)
+                    computed_fields[field_name] = value
 
         # Store fields and validators in the class
         namespace["_fields"] = fields
         namespace["_model_validators"] = model_validators
         namespace["_field_validators"] = field_validators
         namespace["_frame_validators"] = frame_validators
+        namespace["_computed_fields"] = computed_fields
 
         return super().__new__(mcs, name, bases, namespace)
 
@@ -288,6 +304,7 @@ class Schema(metaclass=SchemaMeta):
     _model_validators: list[Callable] = []
     _field_validators: dict[str, list[Callable]] = {}
     _frame_validators: list[Callable] = []
+    _computed_fields: dict[str, Callable] = {}
     _pydantic_model_cache: ClassVar[type[BaseModel] | None] = None
 
     def __init__(self, **data: Any) -> None:
@@ -323,6 +340,11 @@ class Schema(metaclass=SchemaMeta):
         # Copy validated values to self
         for field_name in self.__class__._fields:
             setattr(self, field_name, getattr(validated_instance, field_name))
+
+        # Copy computed fields to self
+        for field_name in self.__class__._computed_fields:
+            if hasattr(validated_instance, field_name):
+                setattr(self, field_name, getattr(validated_instance, field_name))
 
         # Store the internal Pydantic instance for delegation
         self._pydantic_instance = validated_instance
@@ -887,6 +909,32 @@ class Schema(metaclass=SchemaMeta):
         """
         return cls._frame_validators.copy()
 
+    @classmethod
+    def computed_fields(cls) -> dict[str, Callable]:
+        """
+        Return all computed fields defined in this schema.
+
+        Returns
+        -------
+        dict[str, Callable]
+            Dictionary mapping computed field names to their compute functions.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, col, computed_field
+            >>> class UserSchema(Schema):
+            ...     first_name: str
+            ...     last_name: str
+            ...
+            ...     @computed_field
+            ...     def full_name():
+            ...         return col('first_name') + ' ' + col('last_name')
+            >>> computed = UserSchema.computed_fields()
+            >>> 'full_name' in computed
+            True
+        """
+        return cls._computed_fields.copy()
+
 
 def model_validator(
     func: Callable | None = None,
@@ -1118,4 +1166,71 @@ def frame_validator(
         return decorator(func)
     else:
         # Called with parentheses: @frame_validator(group_by=[...])
+        return decorator
+
+
+def computed_field(
+    func: Callable | None = None,
+    *,
+    alias: str | None = None,
+) -> Callable:
+    """
+    Decorator for computed (derived) fields.
+
+    Use this decorator to define fields that are computed from other fields.
+    Computed fields are:
+    - Included in model_dump() output (for Pydantic)
+    - Added as columns during Polars validation
+    - NOT included in SQLAlchemy table (they are virtual)
+
+    The decorated function should return a DSL expression that computes
+    the field value.
+
+    Parameters
+    ----------
+    func : Callable, optional
+        The compute function (when used without parentheses).
+    alias : str, optional
+        Alternative name for the computed field.
+
+    Returns
+    -------
+    Callable
+        The decorated function, marked as a computed field.
+
+    Examples
+    --------
+    Basic computed field:
+
+        >>> from flycatcher import Schema, col, computed_field
+        >>> class UserSchema(Schema):
+        ...     first_name: str
+        ...     last_name: str
+        ...
+        ...     @computed_field
+        ...     def full_name():
+        ...         return col('first_name') + ' ' + col('last_name')
+
+    With alias:
+
+        >>> class ProductSchema(Schema):
+        ...     price: float
+        ...     tax_rate: float
+        ...
+        ...     @computed_field(alias='totalPrice')
+        ...     def total_price():
+        ...         return col('price') * (1 + col('tax_rate'))
+    """
+
+    def decorator(fn: Callable) -> Callable:
+        fn._is_computed_field = True  # type: ignore[attr-defined]
+        fn._computed_field_name = alias or fn.__name__  # type: ignore[attr-defined]
+        return fn
+
+    # Handle both @computed_field and @computed_field(alias=...)
+    if func is not None:
+        # Called without parentheses: @computed_field
+        return decorator(func)
+    else:
+        # Called with parentheses: @computed_field(alias=...)
         return decorator
