@@ -35,6 +35,8 @@ class FieldInfo:
         unique: bool = False,
         index: bool = False,
         autoincrement: bool | None = None,
+        # Pydantic options
+        alias: str | None = None,
         # Numeric constraints (Integer, Float, Datetime)
         gt: int | float | datetime | None = None,
         ge: int | float | datetime | None = None,
@@ -54,6 +56,9 @@ class FieldInfo:
         self.unique = unique
         self.index = index
         self.autoincrement = autoincrement
+
+        # Pydantic options
+        self.alias = alias
 
         # Numeric constraints
         self.gt = gt
@@ -82,6 +87,10 @@ class FieldInfo:
         kwargs["index"] = self.index
         if self.autoincrement is not None:
             kwargs["autoincrement"] = self.autoincrement
+
+        # Pydantic options
+        if self.alias is not None:
+            kwargs["alias"] = self.alias
 
         # Numeric constraints (only include if set)
         if self.gt is not None:
@@ -116,6 +125,8 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
     unique: bool = False,
     index: bool = False,
     autoincrement: bool | None = None,
+    # Pydantic options
+    alias: str | None = None,
     # Numeric constraints (Integer, Float, Datetime)
     gt: int | float | datetime | None = None,
     ge: int | float | datetime | None = None,
@@ -149,6 +160,9 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
         Create an index on this field (for database operations).
     autoincrement : bool, optional
         Enable auto-increment for integer fields.
+    alias : str, optional
+        Alternative name for the field in serialization/deserialization.
+        Useful for mapping between Python snake_case and JSON camelCase.
     gt : numeric, optional
         Value must be greater than this (for int, float, datetime fields).
     ge : numeric, optional
@@ -195,6 +209,12 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
         ...     # Database-specific options
         ...     id: int = Field(primary_key=True, autoincrement=True)
 
+    With aliases for JSON serialization:
+
+        >>> class ApiUserSchema(Schema):
+        ...     user_id: int = Field(alias="userId")
+        ...     full_name: str = Field(alias="fullName")
+
     With default value as positional argument:
 
         >>> class ConfigSchema(Schema):
@@ -209,6 +229,7 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
         unique=unique,
         index=index,
         autoincrement=autoincrement,
+        alias=alias,
         gt=gt,
         ge=ge,
         lt=lt,
@@ -249,6 +270,8 @@ class FieldBase:
     autoincrement : bool, optional
         Enable auto-increment for integer fields. If None, auto-detected
         for primary key integer fields.
+    alias : str, optional
+        Alternative name for the field in serialization/deserialization.
 
     Examples
     --------
@@ -271,6 +294,7 @@ class FieldBase:
         unique: bool = False,
         index: bool = False,
         autoincrement: bool | None = None,
+        alias: str | None = None,
     ):
         self.primary_key = primary_key
         self.nullable = nullable
@@ -279,6 +303,7 @@ class FieldBase:
         self.unique = unique
         self.index = index
         self.autoincrement = autoincrement
+        self.alias = alias
         self.name: str | None = None  # Set by Schema metaclass
 
         # Warn about ambiguous configuration

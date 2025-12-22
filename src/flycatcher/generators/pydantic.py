@@ -4,7 +4,7 @@ import inspect
 from typing import Any, Union
 
 from loguru import logger
-from pydantic import BaseModel, create_model, model_validator
+from pydantic import BaseModel, ConfigDict, create_model, model_validator
 from pydantic import Field as PydanticField
 
 from ..base import Schema
@@ -49,6 +49,10 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
         if field.default is not _MISSING:
             field_kwargs["default"] = field.default
 
+        # Handle alias
+        if field.alias:
+            field_kwargs["alias"] = field.alias
+
         # Get constraint kwargs from field (gt, le, pattern, etc.)
         get_kwargs = getattr(field, "get_pydantic_field_kwargs", None)
         if get_kwargs is not None:
@@ -61,10 +65,24 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
         else:
             pydantic_fields[field_name] = (python_type, ...)
 
+    # Check if any fields have aliases
+    has_aliases = any(field.alias for field in fields.values())
+
     # Create the model dynamically
     model_name = schema_cls.__name__.removesuffix("Schema") + "Model"
-    # Pydantic's create_model is dynamically typed - returns type[BaseModel] at runtime
-    base_model: type[BaseModel] = create_model(model_name, **pydantic_fields)  # type: ignore[assignment, call-overload]
+
+    # If there are aliases, configure the model to accept both field names and aliases
+    if has_aliases:
+        # Create a base class with the config
+        class AliasConfigBase(BaseModel):
+            model_config = ConfigDict(populate_by_name=True)
+
+        base_model: type[BaseModel] = create_model(
+            model_name, __base__=AliasConfigBase, **pydantic_fields
+        )  # type: ignore[assignment, call-overload]
+    else:
+        # Pydantic's create_model is dynamically typed - returns type[BaseModel] at runtime
+        base_model = create_model(model_name, **pydantic_fields)  # type: ignore[assignment, call-overload]
 
     # Add model validators if they have Pydantic implementations
     validators_to_add = []
