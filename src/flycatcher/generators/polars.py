@@ -96,6 +96,7 @@ class PolarsValidator:
         strict: bool = True,
         show_violations: bool = False,
         fill_nulls: bool = False,
+        cast: bool = True,
     ) -> pl.DataFrame:
         """
         Validate and coerce a DataFrame to match the schema.
@@ -112,6 +113,9 @@ class PolarsValidator:
             If True, replace null values with field defaults (if specified).
             Note: This is a transformation step. Defaults only apply to missing
             columns by default. Enable this to also fill existing null values.
+        cast : bool, default True
+            If True, automatically cast columns to schema types.
+            If False, columns must already have correct types or validation fails.
 
         Returns
         -------
@@ -156,14 +160,30 @@ class PolarsValidator:
                     f"Added column '{field_name}' with default value: {default_value}"
                 )
 
-        # Cast to correct types and ensure column order matches schema
-        cast_exprs = []
-        for col_name, dtype in self._polars_schema.items():
-            if col_name in df.columns:
-                cast_exprs.append(pl.col(col_name).cast(dtype, strict=False))
+        if cast:
+            # Cast to correct types and ensure column order matches schema
+            cast_exprs = []
+            for col_name, dtype in self._polars_schema.items():
+                if col_name in df.columns:
+                    cast_exprs.append(pl.col(col_name).cast(dtype, strict=False))
 
-        if cast_exprs:
-            df = df.select(cast_exprs)
+            if cast_exprs:
+                df = df.select(cast_exprs)
+        else:
+            # Validate types without casting
+            type_errors = []
+            for col_name, expected_dtype in self._polars_schema.items():
+                if col_name in df.columns:
+                    actual_dtype = df[col_name].dtype
+                    if actual_dtype != expected_dtype:
+                        type_errors.append(
+                            f"Column '{col_name}': expected {expected_dtype}, "
+                            f"got {actual_dtype}"
+                        )
+            if type_errors:
+                raise ValueError(
+                    f"Type mismatch (cast=False):\n" + "\n".join(type_errors)
+                )
 
         # Handle nulls based on configuration
         for field_name, field in self.fields.items():

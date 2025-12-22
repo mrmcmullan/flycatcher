@@ -408,6 +408,7 @@ class Schema(metaclass=SchemaMeta):
         strict: bool = True,
         show_violations: bool = False,
         fill_nulls: bool = False,
+        cast: bool = True,
     ) -> pl.DataFrame:
         """
         Validate a Polars DataFrame against this schema.
@@ -425,6 +426,9 @@ class Schema(metaclass=SchemaMeta):
             If True, log violations for debugging.
         fill_nulls : bool, default False
             If True, fill null values with field defaults.
+        cast : bool, default True
+            If True, automatically cast columns to schema types.
+            If False, columns must already have correct types or validation fails.
 
         Returns
         -------
@@ -445,10 +449,18 @@ class Schema(metaclass=SchemaMeta):
             ...     age: int = Field(ge=0)
             >>> df = pl.DataFrame({"name": ["Alice"], "age": [25]})
             >>> validated = UserSchema.validate(df)
+
+        Disable automatic casting:
+
+            >>> validated = UserSchema.validate(df, cast=False)
         """
         validator = cls.to_polars_validator()
         return validator.validate(
-            df, strict=strict, show_violations=show_violations, fill_nulls=fill_nulls
+            df,
+            strict=strict,
+            show_violations=show_violations,
+            fill_nulls=fill_nulls,
+            cast=cast,
         )
 
     @classmethod
