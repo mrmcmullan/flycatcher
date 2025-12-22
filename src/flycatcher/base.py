@@ -524,6 +524,69 @@ class Schema(metaclass=SchemaMeta):
         )
 
     @classmethod
+    def update(
+        cls,
+        engine: "Engine",
+        df: pl.DataFrame,
+        *,
+        on: list[str],
+        validate: bool = True,
+        chunk_size: int = 1000,
+    ) -> int:
+        """
+        Update rows in the database using bulk update.
+
+        Matches rows by the specified key columns and updates the remaining columns.
+
+        Parameters
+        ----------
+        engine : sqlalchemy.Engine
+            SQLAlchemy engine connected to the database.
+        df : polars.DataFrame
+            DataFrame containing the data to update.
+        on : list[str]
+            Column name(s) to match on for the UPDATE WHERE clause.
+        validate : bool, default True
+            Whether to validate the DataFrame before updating.
+        chunk_size : int, default 1000
+            Number of rows to update per batch.
+
+        Returns
+        -------
+        int
+            Number of rows updated.
+
+        Raises
+        ------
+        ValueError
+            If schema has `table=False`, key columns are missing, or validation fails.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, Field
+            >>> from sqlalchemy import create_engine
+            >>> import polars as pl
+            >>>
+            >>> class UserSchema(Schema, table=True):
+            ...     id: int = Field(primary_key=True)
+            ...     name: str
+            >>>
+            >>> engine = create_engine("sqlite:///users.db")
+            >>> updates = pl.DataFrame({"id": [1], "name": ["Alice Updated"]})
+            >>> rows = UserSchema.update(engine, updates, on=['id'])
+        """
+        from .db.operations import bulk_update
+
+        return bulk_update(
+            cls,
+            engine,
+            df,
+            on=on,
+            validate=validate,
+            chunk_size=chunk_size,
+        )
+
+    @classmethod
     def to_pydantic(cls) -> type:
         """
         Generate a Pydantic BaseModel from this schema.

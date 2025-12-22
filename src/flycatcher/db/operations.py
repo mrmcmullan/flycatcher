@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Iterator
 
 import polars as pl
 from loguru import logger
-from sqlalchemy import Engine, insert
+from sqlalchemy import Engine, bindparam, insert, update
 from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
@@ -139,4 +139,153 @@ def bulk_insert(
 
     logger.info(f"Successfully inserted {total_inserted} rows into {table.name}")
     return total_inserted
+
+
+def bulk_update(
+    schema_cls: "type[Schema]",
+    engine: Engine,
+    df: pl.DataFrame,
+    *,
+    on: list[str],
+    validate: bool = True,
+    chunk_size: int = 1000,
+) -> int:
+    """
+    Update rows in the database using bulk update.
+
+    Matches rows by the specified key columns and updates the remaining columns.
+
+    Parameters
+    ----------
+    schema_cls : type[Schema]
+        The schema class to use for validation and table generation.
+    engine : sqlalchemy.Engine
+        SQLAlchemy engine connected to the database.
+    df : polars.DataFrame
+        DataFrame containing the data to update. Must include key columns.
+    on : list[str]
+        Column name(s) to match on for the UPDATE WHERE clause.
+    validate : bool, default True
+        Whether to validate the DataFrame before updating.
+    chunk_size : int, default 1000
+        Number of rows to update per batch.
+
+    Returns
+    -------
+    int
+        Number of rows updated.
+
+    Raises
+    ------
+    ValueError
+        If the schema has `table=False`, key columns are missing,
+        or validation fails.
+
+    Examples
+    --------
+        >>> from flycatcher import Schema, Field
+        >>> from sqlalchemy import create_engine
+        >>> import polars as pl
+        >>>
+        >>> class UserSchema(Schema, table=True):
+        ...     id: int = Field(primary_key=True)
+        ...     name: str
+        ...     email: str
+        >>>
+        >>> engine = create_engine("sqlite:///users.db")
+        >>> updates_df = pl.DataFrame({
+        ...     "id": [1, 2],
+        ...     "name": ["Alice Updated", "Bob Updated"],
+        ...     "email": ["a_new@x.com", "b_new@x.com"],
+        ... })
+        >>> rows_updated = UserSchema.update(engine, updates_df, on=['id'])
+    """
+    # Check if schema is a table
+    if not getattr(schema_cls, "_table", True):
+        raise ValueError(
+            f"Schema '{schema_cls.__name__}' has table=False and cannot be "
+            "used for database operations. Use table=True to enable."
+        )
+
+    # Validate key columns are present
+    for key_col in on:
+        if key_col not in df.columns:
+            raise ValueError(
+                f"Key column '{key_col}' not found in DataFrame. "
+                f"Available columns: {df.columns}"
+            )
+
+    # Validate if requested
+    if validate:
+        logger.info(f"Validating {df.height} rows before update...")
+        df = schema_cls.validate(df, strict=True, cast=True)
+        logger.info("Validation passed.")
+
+    # Get the SQLAlchemy table
+    table = schema_cls.to_sqlalchemy_table()
+
+    # Filter columns to only those that exist in the table and have persist=True
+    table_columns = {c.name for c in table.columns}
+    schema_fields = schema_cls.fields()
+
+    # Determine which DataFrame columns to include
+    columns_to_update = []
+    for col_name in df.columns:
+        if col_name in table_columns:
+            # Check if field has persist=True (default)
+            field = schema_fields.get(col_name)
+            if field is None or getattr(field, "persist", True):
+                columns_to_update.append(col_name)
+
+    # Build the update statement with bound parameters
+    # Key columns go in WHERE, others in SET
+    set_columns = [c for c in columns_to_update if c not in on]
+    
+    if not set_columns:
+        raise ValueError(
+            "No columns to update. All columns are either key columns "
+            "or have persist=False."
+        )
+
+    # Select only the columns we need
+    df_to_update = df.select(columns_to_update)
+
+    # Perform chunked updates
+    total_updated = 0
+
+    with Session(engine) as session:
+        for chunk_records in _chunk_dataframe(df_to_update, chunk_size):
+            if not chunk_records:
+                continue
+
+            # Build UPDATE statement with bound parameters for each row
+            # This uses executemany pattern for efficiency
+            stmt = update(table)
+            
+            # Add WHERE clause for key columns
+            for key_col in on:
+                stmt = stmt.where(table.c[key_col] == bindparam(f"_key_{key_col}"))
+            
+            # Add SET values for non-key columns
+            set_values = {col: bindparam(col) for col in set_columns}
+            stmt = stmt.values(**set_values)
+            
+            # Prepare records with renamed key columns
+            prepared_records = []
+            for record in chunk_records:
+                prepared = {}
+                for key_col in on:
+                    prepared[f"_key_{key_col}"] = record[key_col]
+                for col in set_columns:
+                    prepared[col] = record[col]
+                prepared_records.append(prepared)
+            
+            session.execute(stmt, prepared_records)
+            total_updated += len(chunk_records)
+            logger.debug(f"Updated chunk of {len(chunk_records)} rows")
+
+        session.commit()
+
+    logger.info(f"Successfully updated {total_updated} rows in {table.name}")
+    return total_updated
 
