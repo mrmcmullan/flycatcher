@@ -25,6 +25,7 @@ from .fields import (
     FieldBase,
     FieldInfo,
 )
+from .typing import DataFrame
 from .validators import FieldRef, col
 
 __version__ = "0.2.0"
@@ -37,6 +38,8 @@ __all__ = [
     "model_validator",
     "field_validator",
     "frame_validator",
+    # Type hints
+    "DataFrame",
     # DSL
     "col",
     "FieldRef",
