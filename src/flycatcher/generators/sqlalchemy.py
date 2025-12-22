@@ -73,13 +73,16 @@ def create_sqlalchemy_table(
         if field.default is not _MISSING:
             column_kwargs["default"] = field.default
 
+        # Determine column name (use sa_column_name if set, otherwise field_name)
+        col_name = getattr(field, "sa_column_name", None) or field_name
+
         # Create column
         # sa_type can be either a class (callable) or instance (when max_length is set)
         # Column accepts dynamic kwargs that mypy can't verify statically
         if callable(sa_type):
-            col = Column(field_name, sa_type(), **column_kwargs)  # type: ignore[arg-type]
+            col = Column(col_name, sa_type(), **column_kwargs)  # type: ignore[arg-type]
         else:
-            col = Column(field_name, sa_type, **column_kwargs)  # type: ignore[arg-type]
+            col = Column(col_name, sa_type, **column_kwargs)  # type: ignore[arg-type]
         columns.append(col)
 
     return Table(table_name, metadata, *columns)
