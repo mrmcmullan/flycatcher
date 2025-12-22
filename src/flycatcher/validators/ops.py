@@ -19,6 +19,28 @@ if TYPE_CHECKING:  # pragma: no cover
 class _MathOpsMixin:
     """Shared math-style operations for expressions."""
 
+    def cast(self, dtype: Any) -> "UnaryOp":
+        """Cast expression to a specific data type.
+
+        Parameters
+        ----------
+        dtype : type or pl.DataType
+            Target type. Can be Python types (int, float, str, bool) or
+            Polars data types (pl.Int64, pl.Float64, etc.).
+
+        Returns
+        -------
+        UnaryOp
+            Expression representing the cast operation.
+
+        Examples
+        --------
+            >>> col('price').cast(int)
+            >>> col('amount').cast(float)
+            >>> col('value').cast(pl.Float32)
+        """
+        return UnaryOp("cast", self, dtype)
+
     def round(self, decimals: int = 0) -> "UnaryOp":
         """Round to a fixed number of decimal places.
 
@@ -216,6 +238,54 @@ def _python_sqrt(value: Any) -> Any:
         return math.nan
 
 
+def _python_cast(value: Any, dtype: Any) -> Any:
+    """Cast a Python value to a type."""
+    if value is None:
+        return None
+    # Handle Python built-in types
+    if dtype is int:
+        return int(value)
+    elif dtype is float:
+        return float(value)
+    elif dtype is str:
+        return str(value)
+    elif dtype is bool:
+        return bool(value)
+    # Handle Polars types (extract the underlying Python type)
+    elif hasattr(dtype, "base_type"):
+        # Polars 0.17+ DataType
+        base = str(dtype)
+        if "Int" in base or "UInt" in base:
+            return int(value)
+        elif "Float" in base:
+            return float(value)
+        elif "Utf8" in base or "String" in base:
+            return str(value)
+        elif "Bool" in base:
+            return bool(value)
+        # For other Polars types, try direct conversion
+        return value
+    else:
+        # Try calling the type directly
+        try:
+            return dtype(value)
+        except (TypeError, ValueError):
+            return value
+
+
+def _polars_cast(expr: pl.Expr, dtype: Any) -> pl.Expr:
+    """Cast a Polars expression to a type."""
+    # Map Python types to Polars types
+    type_map = {
+        int: pl.Int64,
+        float: pl.Float64,
+        str: pl.Utf8,
+        bool: pl.Boolean,
+    }
+    polars_dtype = type_map.get(dtype, dtype)
+    return expr.cast(polars_dtype)
+
+
 class UnaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
     """Unary operation that can compile to both Polars and Python."""
 
@@ -229,6 +299,7 @@ class UnaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
         "ceil": lambda expr, _: expr.ceil(),
         "sqrt": lambda expr, _: expr.sqrt(),
         "pow": lambda expr, exponent: expr.pow(exponent),
+        "cast": _polars_cast,
     }
 
     PYTHON_OPS = {
@@ -243,6 +314,7 @@ class UnaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
         "ceil": lambda val, _arg: None if val is None else math.ceil(val),
         "sqrt": lambda val, _arg: _python_sqrt(val),
         "pow": lambda val, exponent: None if val is None else pow(val, exponent),
+        "cast": _python_cast,
     }
 
     def __init__(self, op: builtins.str, operand: Any, arg: Any | None = None):
