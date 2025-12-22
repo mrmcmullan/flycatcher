@@ -12,6 +12,7 @@ from .fields import _MISSING, FieldBase, FieldInfo, get_field_class_for_type
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+    from sqlalchemy import Engine
     import polars as pl
 
 
@@ -461,6 +462,65 @@ class Schema(metaclass=SchemaMeta):
             show_violations=show_violations,
             fill_nulls=fill_nulls,
             cast=cast,
+        )
+
+    @classmethod
+    def insert(
+        cls,
+        engine: "Engine",
+        df: pl.DataFrame,
+        *,
+        validate: bool = True,
+        chunk_size: int = 1000,
+    ) -> int:
+        """
+        Insert a DataFrame into the database using bulk insert.
+
+        Validates the DataFrame (optional), then inserts rows in batches.
+
+        Parameters
+        ----------
+        engine : sqlalchemy.Engine
+            SQLAlchemy engine connected to the database.
+        df : polars.DataFrame
+            DataFrame containing the data to insert.
+        validate : bool, default True
+            Whether to validate the DataFrame before inserting.
+        chunk_size : int, default 1000
+            Number of rows to insert per batch.
+
+        Returns
+        -------
+        int
+            Number of rows inserted.
+
+        Raises
+        ------
+        ValueError
+            If schema has `table=False` or validation fails.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, Field
+            >>> from sqlalchemy import create_engine
+            >>> import polars as pl
+            >>>
+            >>> class UserSchema(Schema, table=True):
+            ...     id: int = Field(primary_key=True)
+            ...     name: str
+            >>>
+            >>> engine = create_engine("sqlite:///users.db")
+            >>> users = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+            >>> rows = UserSchema.insert(engine, users)
+        """
+        from .db.operations import bulk_insert
+
+        return bulk_insert(
+            cls,
+            engine,
+            df,
+            validate=validate,
+            chunk_size=chunk_size,
         )
 
     @classmethod
