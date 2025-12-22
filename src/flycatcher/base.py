@@ -1223,6 +1223,7 @@ def computed_field(
     func: Callable | None = None,
     *,
     alias: str | None = None,
+    persist: bool = False,
 ) -> Callable:
     """
     Decorator for computed (derived) fields.
@@ -1231,7 +1232,7 @@ def computed_field(
     Computed fields are:
     - Included in model_dump() output (for Pydantic)
     - Added as columns during Polars validation
-    - NOT included in SQLAlchemy table (they are virtual)
+    - Optionally persisted to SQLAlchemy table (if persist=True)
 
     The decorated function should return a DSL expression that computes
     the field value.
@@ -1242,6 +1243,10 @@ def computed_field(
         The compute function (when used without parentheses).
     alias : str, optional
         Alternative name for the computed field.
+    persist : bool, default False
+        If True, the computed field will be included in the SQLAlchemy table
+        and persisted to the database. If False (default), the field is
+        virtual and only computed during validation.
 
     Returns
     -------
@@ -1250,7 +1255,7 @@ def computed_field(
 
     Examples
     --------
-    Basic computed field:
+    Basic computed field (not persisted):
 
         >>> from flycatcher import Schema, col, computed_field
         >>> class UserSchema(Schema):
@@ -1261,20 +1266,21 @@ def computed_field(
         ...     def full_name():
         ...         return col('first_name') + ' ' + col('last_name')
 
-    With alias:
+    Persisted computed field (stored in DB):
 
-        >>> class ProductSchema(Schema):
+        >>> class OrderSchema(Schema, table=True):
         ...     price: float
-        ...     tax_rate: float
+        ...     quantity: int
         ...
-        ...     @computed_field(alias='totalPrice')
-        ...     def total_price():
-        ...         return col('price') * (1 + col('tax_rate'))
+        ...     @computed_field(persist=True)
+        ...     def total():
+        ...         return col('price') * col('quantity')
     """
 
     def decorator(fn: Callable) -> Callable:
         fn._is_computed_field = True  # type: ignore[attr-defined]
         fn._computed_field_name = alias or fn.__name__  # type: ignore[attr-defined]
+        fn._computed_field_persist = persist  # type: ignore[attr-defined]
         return fn
 
     # Handle both @computed_field and @computed_field(alias=...)

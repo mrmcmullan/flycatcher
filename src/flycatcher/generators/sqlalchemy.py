@@ -1,13 +1,32 @@
 """SQLAlchemy table generator."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, get_type_hints
 
-from sqlalchemy import Column, MetaData, Table
+from sqlalchemy import Column, Float, Integer, MetaData, String, Table
 
 from ..fields import _MISSING
 
 if TYPE_CHECKING:
     from ..base import Schema
+
+
+def _get_sqlalchemy_type_for_python_type(python_type: Any) -> Any:
+    """Map Python types to SQLAlchemy column types."""
+    type_map = {
+        int: Integer,
+        float: Float,
+        str: String,
+        bool: Integer,  # SQLite doesn't have native bool
+    }
+    # Handle Optional types
+    origin = getattr(python_type, "__origin__", None)
+    if origin is not None:
+        args = getattr(python_type, "__args__", ())
+        # Get the non-None type from Optional
+        for arg in args:
+            if arg is not type(None):
+                return type_map.get(arg, String)
+    return type_map.get(python_type, String)
 
 
 def create_sqlalchemy_table(
@@ -87,6 +106,27 @@ def create_sqlalchemy_table(
             col = Column(col_name, sa_type(), **column_kwargs)  # type: ignore[arg-type]
         else:
             col = Column(col_name, sa_type, **column_kwargs)  # type: ignore[arg-type]
+        columns.append(col)
+
+    # Add persisted computed fields
+    computed_fields = schema_cls.computed_fields()
+    for field_name, compute_fn in computed_fields.items():
+        # Check if this computed field should be persisted
+        persist = getattr(compute_fn, "_computed_field_persist", False)
+        if not persist:
+            continue
+
+        # Try to get return type from function annotations
+        try:
+            hints = get_type_hints(compute_fn)
+            return_type = hints.get("return", str)
+        except Exception:
+            return_type = str  # Default to string if can't determine type
+
+        sa_type = _get_sqlalchemy_type_for_python_type(return_type)
+        col_name = getattr(compute_fn, "_computed_field_name", field_name)
+
+        col = Column(col_name, sa_type(), nullable=True)
         columns.append(col)
 
     return Table(table_name, metadata, *columns)
