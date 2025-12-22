@@ -37,6 +37,8 @@ class FieldInfo:
         autoincrement: bool | None = None,
         # Pydantic options
         alias: str | None = None,
+        # SQLAlchemy options
+        persist: bool = True,
         # Numeric constraints (Integer, Float, Datetime)
         gt: int | float | datetime | None = None,
         ge: int | float | datetime | None = None,
@@ -59,6 +61,9 @@ class FieldInfo:
 
         # Pydantic options
         self.alias = alias
+
+        # SQLAlchemy options
+        self.persist = persist
 
         # Numeric constraints
         self.gt = gt
@@ -91,6 +96,9 @@ class FieldInfo:
         # Pydantic options
         if self.alias is not None:
             kwargs["alias"] = self.alias
+
+        # SQLAlchemy options
+        kwargs["persist"] = self.persist
 
         # Numeric constraints (only include if set)
         if self.gt is not None:
@@ -127,6 +135,8 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
     autoincrement: bool | None = None,
     # Pydantic options
     alias: str | None = None,
+    # SQLAlchemy options
+    persist: bool = True,
     # Numeric constraints (Integer, Float, Datetime)
     gt: int | float | datetime | None = None,
     ge: int | float | datetime | None = None,
@@ -163,6 +173,9 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
     alias : str, optional
         Alternative name for the field in serialization/deserialization.
         Useful for mapping between Python snake_case and JSON camelCase.
+    persist : bool, default True
+        If True, include this field in SQLAlchemy table generation.
+        Set to False for computed or virtual fields that shouldn't be stored.
     gt : numeric, optional
         Value must be greater than this (for int, float, datetime fields).
     ge : numeric, optional
@@ -230,6 +243,7 @@ def Field(  # noqa: N802 - Capitalized to match Pydantic's Field() API
         index=index,
         autoincrement=autoincrement,
         alias=alias,
+        persist=persist,
         gt=gt,
         ge=ge,
         lt=lt,
@@ -272,6 +286,8 @@ class FieldBase:
         for primary key integer fields.
     alias : str, optional
         Alternative name for the field in serialization/deserialization.
+    persist : bool, default True
+        If True, include in SQLAlchemy table. False for virtual fields.
 
     Examples
     --------
@@ -295,6 +311,7 @@ class FieldBase:
         index: bool = False,
         autoincrement: bool | None = None,
         alias: str | None = None,
+        persist: bool = True,
     ):
         self.primary_key = primary_key
         self.nullable = nullable
@@ -304,6 +321,7 @@ class FieldBase:
         self.index = index
         self.autoincrement = autoincrement
         self.alias = alias
+        self.persist = persist
         self.name: str | None = None  # Set by Schema metaclass
 
         # Warn about ambiguous configuration

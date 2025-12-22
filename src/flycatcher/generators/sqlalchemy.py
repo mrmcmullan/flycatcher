@@ -45,6 +45,10 @@ def create_sqlalchemy_table(
     columns = []
 
     for field_name, field in fields.items():
+        # Skip fields marked as not persistent (virtual/computed fields)
+        if not getattr(field, "persist", True):
+            continue
+
         sa_type = field.get_sqlalchemy_type()
 
         # Build column arguments
