@@ -84,8 +84,8 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
         # Pydantic's create_model is dynamically typed - returns type[BaseModel] at runtime
         base_model = create_model(model_name, **pydantic_fields)  # type: ignore[assignment, call-overload]
 
-    # Add model validators if they have Pydantic implementations
-    validators_to_add = []
+    # Collect model validators
+    model_validators_to_add = []
     for validator_func in schema_cls.model_validators():
         # Handle both regular functions and classmethod descriptors
         if isinstance(validator_func, classmethod):
@@ -105,19 +105,70 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
         result = ValidatorResult(validator_result)
         if result.has_pydantic_validator():
             pydantic_val = result.get_pydantic_validator()
-            validators_to_add.append(pydantic_val)
+            model_validators_to_add.append(pydantic_val)
+
+    # Collect field validators
+    field_validators_to_add: dict[str, list[tuple[Any, str | None]]] = {}
+    for field_name, validators in schema_cls.field_validators().items():
+        if field_name not in field_validators_to_add:
+            field_validators_to_add[field_name] = []
+
+        for validator_func in validators:
+            # Handle both regular functions and classmethod descriptors
+            if isinstance(validator_func, classmethod):
+                func = validator_func.__func__
+            else:
+                func = validator_func
+
+            # Call the validator to get the DSL expression
+            sig = inspect.signature(func)
+            if len(sig.parameters) > 0:
+                validator_result = func(schema_cls)  # type: ignore[call-arg]
+            else:
+                validator_result = func()  # type: ignore[call-arg]
+
+            # Extract expression and optional error message
+            if isinstance(validator_result, tuple) and len(validator_result) == 2:
+                expr, msg = validator_result
+            else:
+                expr = validator_result
+                msg = None
+
+            field_validators_to_add[field_name].append((expr, msg))
 
     # If we have validators, create a new class with them
-    if validators_to_add:
+    has_validators = model_validators_to_add or field_validators_to_add
+
+    if has_validators:
 
         class ModelWithValidators(base_model):  # type: ignore[misc, valid-type]
-            """Pydantic model with custom cross-field validators."""
+            """Pydantic model with custom validators."""
 
-            # TODO: Add support for mode="before"
             @model_validator(mode="after")  # Run after field validation
             def validate_all(self):
-                """Execute all custom model validators."""
-                for validator in validators_to_add:
+                """Execute all custom validators."""
+                # Run field validators first (transformations)
+                for field_name, validators in field_validators_to_add.items():
+                    for expr, msg in validators:
+                        if hasattr(expr, "to_python"):
+                            try:
+                                result = expr.to_python(self)
+                                # If result is bool, it's validation
+                                if isinstance(result, bool):
+                                    if not result:
+                                        error_msg = msg or f"Field '{field_name}' validation failed"
+                                        raise ValueError(error_msg)
+                                else:
+                                    # It's a transformation - update the field
+                                    setattr(self, field_name, result)
+                            except ValueError:
+                                raise
+                            except Exception as e:
+                                error_msg = msg or f"Field '{field_name}' validation failed"
+                                raise ValueError(f"{error_msg}: {e}") from e
+
+                # Run model validators
+                for validator in model_validators_to_add:
                     try:
                         validator(self)
                     except Exception as e:

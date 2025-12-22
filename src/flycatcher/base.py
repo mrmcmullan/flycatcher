@@ -30,7 +30,8 @@ class SchemaMeta(type):
     def __new__(mcs, name, bases, namespace):
         # Collect inherited fields and validators from parent Schema classes
         inherited_fields: dict[str, FieldBase] = {}
-        inherited_validators: list[Callable] = []
+        inherited_model_validators: list[Callable] = []
+        inherited_field_validators: dict[str, list[Callable]] = {}
 
         # Walk the MRO in reverse order so that closer parents override further ones
         for base in reversed(bases):
@@ -43,12 +44,23 @@ class SchemaMeta(type):
             ):
                 # Extend with parent validators (avoid duplicates)
                 for validator in base._model_validators:
-                    if validator not in inherited_validators:
-                        inherited_validators.append(validator)
+                    if validator not in inherited_model_validators:
+                        inherited_model_validators.append(validator)
+            if hasattr(base, "_field_validators") and isinstance(
+                base._field_validators, dict
+            ):
+                # Merge parent field validators
+                for field_name, validators in base._field_validators.items():
+                    if field_name not in inherited_field_validators:
+                        inherited_field_validators[field_name] = []
+                    inherited_field_validators[field_name].extend(validators)
 
-        # Start with inherited fields, will be overridden by current class fields
+        # Start with inherited, will be overridden by current class
         fields: dict[str, FieldBase] = dict(inherited_fields)
-        model_validators: list[Callable] = list(inherited_validators)
+        model_validators: list[Callable] = list(inherited_model_validators)
+        field_validators: dict[str, list[Callable]] = {
+            k: list(v) for k, v in inherited_field_validators.items()
+        }
 
         # Get type annotations (supports both Python 3.10+ and older)
         annotations = namespace.get("__annotations__", {})
@@ -140,19 +152,33 @@ class SchemaMeta(type):
             field.name = field_name
             fields[field_name] = field
 
-        # Collect model validators
+        # Collect model validators and field validators
         for _key, value in list(namespace.items()):
             if callable(value) and getattr(value, "_is_model_validator", False):
                 model_validators.append(value)
+            elif callable(value) and getattr(value, "_is_field_validator", False):
+                # Field validator: maps to specific field(s)
+                target_fields = getattr(value, "_field_validator_fields", [])
+                for target_field in target_fields:
+                    if target_field not in field_validators:
+                        field_validators[target_field] = []
+                    field_validators[target_field].append(value)
             elif isinstance(value, classmethod):
                 # Handle @classmethod decorator - check the underlying function
                 func = value.__func__
                 if getattr(func, "_is_model_validator", False):
                     model_validators.append(value)
+                elif getattr(func, "_is_field_validator", False):
+                    target_fields = getattr(func, "_field_validator_fields", [])
+                    for target_field in target_fields:
+                        if target_field not in field_validators:
+                            field_validators[target_field] = []
+                        field_validators[target_field].append(value)
 
         # Store fields and validators in the class
         namespace["_fields"] = fields
         namespace["_model_validators"] = model_validators
+        namespace["_field_validators"] = field_validators
 
         return super().__new__(mcs, name, bases, namespace)
 
@@ -243,6 +269,7 @@ class Schema(metaclass=SchemaMeta):
 
     _fields: dict[str, FieldBase] = {}
     _model_validators: list[Callable] = []
+    _field_validators: dict[str, list[Callable]] = {}
     _pydantic_model_cache: ClassVar[type[BaseModel] | None] = None
 
     def __init__(self, **data: Any) -> None:
@@ -540,6 +567,31 @@ class Schema(metaclass=SchemaMeta):
         """
         return cls._model_validators.copy()
 
+    @classmethod
+    def field_validators(cls) -> dict[str, list[Callable]]:
+        """
+        Return all field validators defined in this schema.
+
+        Returns
+        -------
+        dict[str, list[Callable]]
+            Dictionary mapping field names to lists of validator functions.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, col, field_validator
+            >>> class UserSchema(Schema):
+            ...     email: str
+            ...
+            ...     @field_validator('email')
+            ...     def normalize_email():
+            ...         return col('email').str.to_lowercase()
+            >>> validators = UserSchema.field_validators()
+            >>> 'email' in validators
+            True
+        """
+        return {k: list(v) for k, v in cls._field_validators.items()}
+
 
 def model_validator(func: Callable) -> Callable:
     """
@@ -608,3 +660,73 @@ def model_validator(func: Callable) -> Callable:
     # Mark the function as a model validator
     func._is_model_validator = True  # type: ignore[attr-defined]
     return func
+
+
+def field_validator(*fields: str, mode: str = "after") -> Callable[[Callable], Callable]:
+    """
+    Decorator for single-field validation or transformation.
+
+    Use this decorator to validate or transform individual fields. The validator
+    function should return a DSL expression that either:
+
+    1. Transforms the value (e.g., ``col('email').str.to_lowercase()``)
+    2. Validates the value (e.g., ``col('age') >= 18, "Must be adult"``)
+
+    For transformations, the expression result becomes the new field value.
+    For validation (tuple with error message), if the condition is False,
+    a ValueError is raised.
+
+    Parameters
+    ----------
+    *fields : str
+        Field names this validator applies to.
+    mode : str, default "after"
+        When to run the validator:
+        - "after": Run after type coercion (default)
+        - "before": Run before type coercion
+
+    Returns
+    -------
+    Callable
+        The decorator function.
+
+    Examples
+    --------
+    Transformation (normalize value):
+
+        >>> from flycatcher import Schema, col, field_validator
+        >>> class UserSchema(Schema):
+        ...     email: str
+        ...
+        ...     @field_validator('email')
+        ...     def normalize_email():
+        ...         return col('email').str.to_lowercase()
+
+    Validation (check condition):
+
+        >>> class UserSchema(Schema):
+        ...     age: int
+        ...
+        ...     @field_validator('age')
+        ...     def check_adult():
+        ...         return col('age') >= 18, "Must be 18 or older"
+
+    Multiple fields:
+
+        >>> class UserSchema(Schema):
+        ...     first_name: str
+        ...     last_name: str
+        ...
+        ...     @field_validator('first_name', 'last_name')
+        ...     def strip_names():
+        ...         # Note: This applies the same transformation to each field
+        ...         return col('first_name').str.strip_chars()
+    """
+
+    def decorator(func: Callable) -> Callable:
+        func._is_field_validator = True  # type: ignore[attr-defined]
+        func._field_validator_fields = list(fields)  # type: ignore[attr-defined]
+        func._field_validator_mode = mode  # type: ignore[attr-defined]
+        return func
+
+    return decorator
