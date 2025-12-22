@@ -648,7 +648,11 @@ class Schema(metaclass=SchemaMeta):
         return cls._frame_validators.copy()
 
 
-def model_validator(func: Callable) -> Callable:
+def model_validator(
+    func: Callable | None = None,
+    *,
+    polars_only: bool = False,
+) -> Callable:
     """
     Decorator for cross-field validation.
 
@@ -657,14 +661,19 @@ def model_validator(func: Callable) -> Callable:
 
     1. A DSL expression (recommended) - compiles to both Polars and Pydantic
     2. A dict with 'polars' and/or 'pydantic' keys for explicit implementations
+    3. A raw Polars expression (when `polars_only=True`)
 
     The function can optionally accept a `cls` parameter, but it's not required
     for most use cases.
 
     Parameters
     ----------
-    func : Callable
-        The validation function to decorate.
+    func : Callable, optional
+        The validation function (when used without parentheses).
+    polars_only : bool, default False
+        If True, the validator uses raw Polars expressions and is skipped
+        during Pydantic validation. Use this for Polars-specific operations
+        like rolling windows, complex aggregations, etc.
 
     Returns
     -------
@@ -673,7 +682,7 @@ def model_validator(func: Callable) -> Callable:
 
     Examples
     --------
-    Simple DSL expression:
+    Simple DSL expression (compiles to both Polars and Pydantic):
 
         >>> from flycatcher import Schema, col, model_validator
         >>> class BookingSchema(Schema):
@@ -697,24 +706,34 @@ def model_validator(func: Callable) -> Callable:
         ...             "Check-out date must be after check-in date"
         ...         )
 
-    Complex validation with multiple conditions:
+    Polars-only validator (skipped for Pydantic):
 
-        >>> from flycatcher import Field, Schema, col, model_validator
-        >>> class ProductSchema(Schema):
+        >>> import polars as pl
+        >>> class StatsSchema(Schema):
         ...     price: float
-        ...     discount_price: float | None = None
+        ...     threshold: float
         ...
-        ...     @model_validator
-        ...     def check_discount():
+        ...     @model_validator(polars_only=True)
+        ...     def check_rolling_avg():
+        ...         # Uses raw Polars expression - not available in Pydantic
         ...         return (
-        ...             (col('discount_price').is_null()) |
-        ...             (col('discount_price') < col('price')),
-        ...             "Discount price must be less than regular price"
+        ...             pl.col('price').rolling_mean(5) > pl.col('threshold'),
+        ...             "Rolling average must exceed threshold"
         ...         )
     """
-    # Mark the function as a model validator
-    func._is_model_validator = True  # type: ignore[attr-defined]
-    return func
+
+    def decorator(fn: Callable) -> Callable:
+        fn._is_model_validator = True  # type: ignore[attr-defined]
+        fn._polars_only = polars_only  # type: ignore[attr-defined]
+        return fn
+
+    # Handle both @model_validator and @model_validator(polars_only=True)
+    if func is not None:
+        # Called without parentheses: @model_validator
+        return decorator(func)
+    else:
+        # Called with parentheses: @model_validator(polars_only=True)
+        return decorator
 
 
 def field_validator(*fields: str, mode: str = "after") -> Callable[[Callable], Callable]:

@@ -82,11 +82,36 @@ class PolarsValidator:
             else:
                 # Function takes no parameters, call without args
                 validator_result = func()  # type: ignore[call-arg]
-            result = ValidatorResult(validator_result)
-            polars_validator = result.get_polars_validator()
-            if polars_validator:
-                expr, msg = polars_validator
-                constraints.append((expr, msg))
+
+            # Check if this is a polars_only validator
+            is_polars_only = getattr(func, "_polars_only", False)
+
+            if is_polars_only:
+                # For polars_only validators, expect raw Polars expression
+                if isinstance(validator_result, tuple) and len(validator_result) == 2:
+                    expr, msg = validator_result
+                    # expr should be a raw Polars expression
+                    if isinstance(expr, pl.Expr):
+                        constraints.append((expr, msg))
+                    else:
+                        raise TypeError(
+                            f"polars_only validator '{func.__name__}' must return a "
+                            f"Polars expression, got {type(expr).__name__}"
+                        )
+                elif isinstance(validator_result, pl.Expr):
+                    constraints.append((validator_result, f"Validation failed: {func.__name__}"))
+                else:
+                    raise TypeError(
+                        f"polars_only validator '{func.__name__}' must return a Polars "
+                        f"expression or (expression, message) tuple"
+                    )
+            else:
+                # Standard DSL validator
+                result = ValidatorResult(validator_result)
+                polars_validator = result.get_polars_validator()
+                if polars_validator:
+                    expr, msg = polars_validator
+                    constraints.append((expr, msg))
 
         return constraints
 

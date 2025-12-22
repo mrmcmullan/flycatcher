@@ -94,6 +94,13 @@ def create_pydantic_model(schema_cls: "type[Schema]") -> type[BaseModel]:
         else:
             func = validator_func
 
+        # Skip polars_only validators for Pydantic
+        if getattr(func, "_polars_only", False):
+            logger.info(
+                f"Skipping polars_only validator '{func.__name__}' for Pydantic model"
+            )
+            continue
+
         # Check if function accepts cls parameter - make it optional for ergonomics
         sig = inspect.signature(func)
         if len(sig.parameters) > 0:
