@@ -83,6 +83,10 @@ class FieldRef(_MathOpsMixin, _MembershipMixin):
         """Check if the field value is not null/None."""
         return UnaryOp("is_not_null", self)
 
+    def fill_null(self, value: Any) -> UnaryOp:
+        """Replace null values with the specified value."""
+        return UnaryOp("fill_null", self, value)
+
     def __invert__(self) -> UnaryOp:
         return UnaryOp("~", self)
 
