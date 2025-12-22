@@ -28,14 +28,27 @@ class SchemaMeta(type):
     """
 
     def __new__(mcs, name, bases, namespace):
-        # TODO: Support field inheritance - walk MRO of bases and merge parent
-        # fields/validators before collecting current class fields. Child fields
-        # should override parent fields with same name. See test_schema.py
-        # test_inherited_fields_collected for expected behavior.
+        # Collect inherited fields and validators from parent Schema classes
+        inherited_fields: dict[str, FieldBase] = {}
+        inherited_validators: list[Callable] = []
 
-        # Collect all Field instances
-        fields: dict[str, FieldBase] = {}
-        model_validators: list[Callable] = []
+        # Walk the MRO in reverse order so that closer parents override further ones
+        for base in reversed(bases):
+            if hasattr(base, "_fields") and isinstance(base._fields, dict):
+                # Copy parent fields (child will override if same name)
+                for field_name, field in base._fields.items():
+                    inherited_fields[field_name] = field
+            if hasattr(base, "_model_validators") and isinstance(
+                base._model_validators, list
+            ):
+                # Extend with parent validators (avoid duplicates)
+                for validator in base._model_validators:
+                    if validator not in inherited_validators:
+                        inherited_validators.append(validator)
+
+        # Start with inherited fields, will be overridden by current class fields
+        fields: dict[str, FieldBase] = dict(inherited_fields)
+        model_validators: list[Callable] = list(inherited_validators)
 
         # Get type annotations (supports both Python 3.10+ and older)
         annotations = namespace.get("__annotations__", {})
