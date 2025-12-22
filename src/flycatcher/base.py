@@ -1,11 +1,18 @@
 """Core `Schema` class with metaclass magic and custom validators."""
 
+from __future__ import annotations
+
+import json
 import sys
 import types
 import typing
-from typing import Callable, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union, get_args, get_origin
 
 from .fields import _MISSING, FieldBase, FieldInfo, get_field_class_for_type
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+    import polars as pl
 
 
 class SchemaMeta(type):
@@ -176,78 +183,217 @@ class Schema(metaclass=SchemaMeta):
     Define your schema by subclassing `Schema` and adding field definitions.
     The metaclass automatically collects fields and validators.
 
+    Schemas can be used in three ways:
+
+    1. **Instantiate directly** (like Pydantic): ``user = UserSchema(name="Alice")``
+    2. **Validate DataFrames**: ``UserSchema.validate(df)``
+    3. **Generate outputs**: ``.to_pydantic()``, ``.to_polars_validator()``, ``.to_sqlalchemy()``
+
     Fields are defined using Pydantic-style type annotations with optional Field()
     for constraints.
 
     Examples
     --------
-    Basic schema definition:
+    Basic schema definition and instantiation:
 
         >>> from flycatcher import Schema, Field
-        >>> from datetime import datetime
         >>> class UserSchema(Schema):
-        ...     # Simple fields - just type annotations
         ...     name: str
-        ...     created_at: datetime
-        ...
-        ...     # Nullable fields
-        ...     bio: str | None = None
-        ...
-        ...     # Fields with defaults
-        ...     is_active: bool = True
-        ...
-        ...     # Fields with constraints
         ...     age: int = Field(ge=0, le=120)
-        ...     email: str = Field(min_length=5, max_length=100)
-        ...
-        ...     # Database options
-        ...     id: int = Field(primary_key=True, autoincrement=True)
+        ...     is_active: bool = True
+        >>> user = UserSchema(name="Alice", age=25)
+        >>> user.name
+        'Alice'
+        >>> user.model_dump()
+        {'name': 'Alice', 'age': 25, 'is_active': True}
+
+    DataFrame validation:
+
+        >>> import polars as pl
+        >>> df = pl.DataFrame({"name": ["Alice", "Bob"], "age": [25, 30], "is_active": [True, True]})
+        >>> validated_df = UserSchema.validate(df)
 
     With cross-field validation:
 
-        >>> from flycatcher import Schema, Field, col, model_validator
+        >>> from flycatcher import Schema, col, model_validator
         >>> class BookingSchema(Schema):
-        ...     check_in: datetime
-        ...     check_out: datetime
+        ...     check_in: int
+        ...     check_out: int
         ...
         ...     @model_validator
         ...     def check_dates():
-        ...         return (
-        ...             col('check_out') > col('check_in'),
-        ...             "Check-out must be after check-in"
-        ...         )
-
-    Generate outputs:
-
-        >>> from datetime import datetime
-        >>> # Generate Pydantic model
-        >>> UserModel = UserSchema.to_pydantic()
-        >>> user = UserModel(
-        ...     id=1,
-        ...     name="Alice",
-        ...     age=25,
-        ...     email="alice@example.com",
-        ...     created_at=datetime.now(),
-        ... )
-        >>>
-        >>> # Generate Polars validator
-        >>> import polars as pl
-        >>> validator = UserSchema.to_polars_validator()
-        >>> df = pl.DataFrame({
-        ...     "id": [1],
-        ...     "name": ["Alice"],
-        ...     "age": [25],
-        ...     "email": ["alice@example.com"],
-        ...     "created_at": [datetime.now()],
-        ... })
-        >>> validated_df = validator.validate(df, strict=True)
-        >>>
-        >>> # Generate SQLAlchemy table
-        >>> table = UserSchema.to_sqlalchemy(table_name="users")
+        ...         return col('check_out') > col('check_in')
+        >>> booking = BookingSchema(check_in=1, check_out=5)
+        >>> booking.check_out
+        5
     """
 
     _fields: dict[str, FieldBase] = {}
     _model_validators: list[Callable] = []
+    _pydantic_model_cache: ClassVar[type[BaseModel] | None] = None
+
+    def __init__(self, **data: Any) -> None:
+        """
+        Create a new Schema instance with validated data.
+
+        Parameters
+        ----------
+        **data : Any
+            Field values to validate and store.
+
+        Raises
+        ------
+        pydantic.ValidationError
+            If validation fails.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, Field
+            >>> class UserSchema(Schema):
+            ...     name: str
+            ...     age: int = Field(ge=0)
+            >>> user = UserSchema(name="Alice", age=25)
+            >>> user.name
+            'Alice'
+        """
+        # Get or create the cached Pydantic model
+        model_class = self._get_pydantic_model()
+
+        # Validate data using Pydantic
+        validated_instance = model_class(**data)
+
+        # Copy validated values to self
+        for field_name in self.__class__._fields:
+            setattr(self, field_name, getattr(validated_instance, field_name))
+
+        # Store the internal Pydantic instance for delegation
+        self._pydantic_instance = validated_instance
+
+    @classmethod
+    def _get_pydantic_model(cls) -> type[BaseModel]:
+        """Get or create the cached Pydantic model for this schema."""
+        if cls._pydantic_model_cache is None:
+            cls._pydantic_model_cache = cls.to_pydantic()
+        return cls._pydantic_model_cache
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Convert the schema instance to a dictionary.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Additional arguments passed to Pydantic's model_dump().
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary of field names to values.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema
+            >>> class UserSchema(Schema):
+            ...     name: str
+            ...     age: int
+            >>> user = UserSchema(name="Alice", age=25)
+            >>> user.model_dump()
+            {'name': 'Alice', 'age': 25}
+        """
+        return self._pydantic_instance.model_dump(**kwargs)
+
+    def model_dump_json(self, **kwargs: Any) -> str:
+        """
+        Convert the schema instance to a JSON string.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Additional arguments passed to Pydantic's model_dump_json().
+
+        Returns
+        -------
+        str
+            JSON string representation.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema
+            >>> class UserSchema(Schema):
+            ...     name: str
+            ...     age: int
+            >>> user = UserSchema(name="Alice", age=25)
+            >>> user.model_dump_json()
+            '{"name":"Alice","age":25}'
+        """
+        return self._pydantic_instance.model_dump_json(**kwargs)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the schema instance."""
+        field_strs = [
+            f"{name}={getattr(self, name)!r}" for name in self.__class__._fields
+        ]
+        return f"{self.__class__.__name__}({', '.join(field_strs)})"
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality based on field values."""
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return all(
+            getattr(self, name) == getattr(other, name)
+            for name in self.__class__._fields
+        )
+
+    @classmethod
+    def validate(
+        cls,
+        df: pl.DataFrame,
+        *,
+        strict: bool = True,
+        show_violations: bool = False,
+        fill_nulls: bool = False,
+    ) -> pl.DataFrame:
+        """
+        Validate a Polars DataFrame against this schema.
+
+        This is a convenience method equivalent to:
+        ``cls.to_polars_validator().validate(df, ...)``
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            The DataFrame to validate.
+        strict : bool, default True
+            If True, raise on validation errors. If False, filter out invalid rows.
+        show_violations : bool, default False
+            If True, log violations for debugging.
+        fill_nulls : bool, default False
+            If True, fill null values with field defaults.
+
+        Returns
+        -------
+        pl.DataFrame
+            Validated DataFrame.
+
+        Raises
+        ------
+        ValueError
+            If validation fails and strict=True.
+
+        Examples
+        --------
+            >>> from flycatcher import Schema, Field
+            >>> import polars as pl
+            >>> class UserSchema(Schema):
+            ...     name: str
+            ...     age: int = Field(ge=0)
+            >>> df = pl.DataFrame({"name": ["Alice"], "age": [25]})
+            >>> validated = UserSchema.validate(df)
+        """
+        validator = cls.to_polars_validator()
+        return validator.validate(
+            df, strict=strict, show_violations=show_violations, fill_nulls=fill_nulls
+        )
 
     @classmethod
     def to_pydantic(cls) -> type:
