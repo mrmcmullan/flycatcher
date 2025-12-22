@@ -105,9 +105,198 @@ class FieldRef(_MathOpsMixin, _MembershipMixin):
         return DateTimeAccessor(self)
 
 
-def col(name: str) -> FieldRef:
-    """Create a field reference for use in validator expressions."""
-    return FieldRef(name)
+def col(*names: str) -> "FieldRef | MultiColumnRef":
+    """
+    Create a field reference for use in validator expressions.
+
+    Can reference single or multiple columns. Multiple columns are useful
+    for Polars-style operations that apply to several columns at once.
+
+    Parameters
+    ----------
+    *names : str
+        One or more column names. If a single name starting with '^' and
+        ending with '$' is provided, it's treated as a regex pattern.
+
+    Returns
+    -------
+    FieldRef | MultiColumnRef
+        Single field reference for one name, multi-column reference for multiple.
+
+    Examples
+    --------
+    Single column:
+
+        >>> col('age') >= 18
+
+    Multiple columns (Polars-style):
+
+        >>> col('price', 'discount').is_not_null()
+
+    Regex pattern (Polars-style):
+
+        >>> col('^amount_.*$') > 0
+    """
+    if len(names) == 1:
+        name = names[0]
+        # Check for regex pattern (^...$)
+        if name.startswith("^") and name.endswith("$"):
+            return MultiColumnRef(pattern=name)
+        return FieldRef(name)
+    elif len(names) > 1:
+        return MultiColumnRef(columns=list(names))
+    else:
+        raise ValueError("col() requires at least one column name")
+
+
+class MultiColumnRef:
+    """
+    Reference to multiple columns for Polars-style multi-column operations.
+
+    This is primarily useful for Polars validation where operations can
+    apply to multiple columns simultaneously. For Pydantic validation,
+    multi-column references are not directly supported.
+    """
+
+    def __init__(
+        self,
+        columns: list[str] | None = None,
+        pattern: str | None = None,
+    ):
+        self.columns = columns
+        self.pattern = pattern
+
+    def to_polars(self) -> pl.Expr:
+        """Compile to Polars expression selecting multiple columns."""
+        if self.pattern:
+            return pl.col(self.pattern)
+        elif self.columns:
+            return pl.col(*self.columns)
+        raise ValueError("MultiColumnRef requires columns or pattern")
+
+    def to_python(self, values: Any) -> Any:
+        """
+        Evaluate in Python context.
+
+        For multi-column references, returns a dict of column values.
+        """
+        if self.pattern:
+            import re
+
+            regex = re.compile(self.pattern)
+            if hasattr(values, "__dict__"):
+                return {
+                    k: v
+                    for k, v in vars(values).items()
+                    if regex.match(k) and not k.startswith("_")
+                }
+            elif isinstance(values, dict):
+                return {k: v for k, v in values.items() if regex.match(k)}
+            raise TypeError("Cannot apply regex pattern to non-dict values")
+
+        elif self.columns:
+            result = {}
+            for col_name in self.columns:
+                if hasattr(values, col_name):
+                    result[col_name] = getattr(values, col_name)
+                elif isinstance(values, dict):
+                    result[col_name] = values.get(col_name)
+                else:
+                    raise AttributeError(f"Field '{col_name}' not found")
+            return result
+
+        raise ValueError("MultiColumnRef requires columns or pattern")
+
+    def is_not_null(self) -> "MultiColumnOp":
+        """Check if all referenced columns are not null."""
+        return MultiColumnOp("is_not_null", self)
+
+    def is_null(self) -> "MultiColumnOp":
+        """Check if any referenced columns are null."""
+        return MultiColumnOp("is_null", self)
+
+    def __gt__(self, other: Any) -> "MultiColumnOp":
+        return MultiColumnOp(">", self, other)
+
+    def __ge__(self, other: Any) -> "MultiColumnOp":
+        return MultiColumnOp(">=", self, other)
+
+    def __lt__(self, other: Any) -> "MultiColumnOp":
+        return MultiColumnOp("<", self, other)
+
+    def __le__(self, other: Any) -> "MultiColumnOp":
+        return MultiColumnOp("<=", self, other)
+
+    def __eq__(self, other: Any) -> "MultiColumnOp":  # type: ignore[override]
+        return MultiColumnOp("==", self, other)
+
+    def __ne__(self, other: Any) -> "MultiColumnOp":  # type: ignore[override]
+        return MultiColumnOp("!=", self, other)
+
+
+class MultiColumnOp:
+    """Operation applied to multiple columns."""
+
+    def __init__(self, op: str, ref: MultiColumnRef, value: Any = None):
+        self.op = op
+        self.ref = ref
+        self.value = value
+
+    def to_polars(self) -> pl.Expr:
+        """Compile to Polars expression."""
+        expr = self.ref.to_polars()
+
+        if self.op == "is_null":
+            return expr.is_null()
+        elif self.op == "is_not_null":
+            return expr.is_not_null()
+        elif self.op == ">":
+            return expr > self.value
+        elif self.op == ">=":
+            return expr >= self.value
+        elif self.op == "<":
+            return expr < self.value
+        elif self.op == "<=":
+            return expr <= self.value
+        elif self.op == "==":
+            return expr == self.value
+        elif self.op == "!=":
+            return expr != self.value
+
+        raise ValueError(f"Unknown multi-column op: {self.op}")
+
+    def to_python(self, values: Any) -> Any:
+        """
+        Evaluate in Python context.
+
+        Returns True only if the condition holds for ALL columns.
+        """
+        col_values = self.ref.to_python(values)
+
+        if self.op == "is_null":
+            return all(v is None for v in col_values.values())
+        elif self.op == "is_not_null":
+            return all(v is not None for v in col_values.values())
+        elif self.op == ">":
+            return all(v > self.value for v in col_values.values() if v is not None)
+        elif self.op == ">=":
+            return all(v >= self.value for v in col_values.values() if v is not None)
+        elif self.op == "<":
+            return all(v < self.value for v in col_values.values() if v is not None)
+        elif self.op == "<=":
+            return all(v <= self.value for v in col_values.values() if v is not None)
+        elif self.op == "==":
+            return all(v == self.value for v in col_values.values())
+        elif self.op == "!=":
+            return all(v != self.value for v in col_values.values())
+
+        raise ValueError(f"Unknown multi-column op: {self.op}")
+
+    def __and__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "&", other)
+
+    def __or__(self, other: Any) -> "BinaryOp":
+        return BinaryOp(self, "|", other)
 
 
 class ValidatorResult:
