@@ -179,6 +179,10 @@ class BinaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
         """Absolute value."""
         return UnaryOp("abs", self)
 
+    def fill_null(self, value: Any) -> "UnaryOp":
+        """Replace null values with the specified value."""
+        return UnaryOp("fill_null", self, value)
+
     def __invert__(self) -> "UnaryOp":
         """Negation."""
         return UnaryOp("~", self)
@@ -224,6 +228,7 @@ class UnaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
         "~": lambda expr, _: ~expr,
         "is_null": lambda expr, _: expr.is_null(),
         "is_not_null": lambda expr, _: expr.is_not_null(),
+        "fill_null": lambda expr, value: expr.fill_null(value),
         "round": lambda expr, decimals: expr.round(decimals=decimals),
         "floor": lambda expr, _: expr.floor(),
         "ceil": lambda expr, _: expr.ceil(),
@@ -236,6 +241,7 @@ class UnaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
         "~": lambda val, _arg: not val,
         "is_null": lambda val, _arg: val is None,
         "is_not_null": lambda val, _arg: val is not None,
+        "fill_null": lambda val, fill_value: fill_value if val is None else val,
         "round": lambda val, decimals: None
         if val is None
         else _python_round(val, decimals),
@@ -343,6 +349,10 @@ class UnaryOp(_MathOpsMixin, _ExpressionMixin, _MembershipMixin):
     def abs(self) -> "UnaryOp":
         """Absolute value."""
         return UnaryOp("abs", self)
+
+    def fill_null(self, value: Any) -> "UnaryOp":
+        """Replace null values with the specified value."""
+        return UnaryOp("fill_null", self, value)
 
     def __invert__(self) -> "UnaryOp":
         """Negation."""
